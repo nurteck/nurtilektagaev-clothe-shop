@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: oshop-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: oshop
+      POSTGRES_PASSWORD: oshop123
+      POSTGRES_DB: oshop
+    volumes:
+      - oshop_pg_data:/var/lib/postgresql/data
+
+volumes:
+  oshop_pg_data:

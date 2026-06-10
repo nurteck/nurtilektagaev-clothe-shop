@@ -1,0 +1,22 @@
+.page {
+  text-align: center;
+  padding: 80px 16px;
+}
+
+.code {
+  font-size: 4rem;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.title {
+  font-size: 1.5rem;
+  color: var(--primary-dark);
+  margin-bottom: 12px;
+}
+
+.text {
+  color: var(--gray-500);
+  margin-bottom: 24px;
+}
