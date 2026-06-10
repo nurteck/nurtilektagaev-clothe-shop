@@ -1,10 +1,7 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
-
-databases:
-  - name: oshop-db
-    plan: free
-    databaseName: oshop
-    user: oshop
+# На free-плане Render только 1 PostgreSQL. Если лимит занят — используйте существующую БД:
+# Render → ваша БД → Connections → Internal → скопируйте URL
+# Render → oshop → Environment → DATABASE_URL → вставьте URL → Save → Manual Deploy
 
 services:
   - type: web
@@ -20,6 +17,4 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: DATABASE_URL
-        fromDatabase:
-          name: oshop-db
-          property: connectionString
+        sync: false
