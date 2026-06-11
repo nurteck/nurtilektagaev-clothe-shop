@@ -164,13 +164,19 @@ export function getColorPreviewUrl(
   return product.images[0]?.url || '';
 }
 
-export function getProductDisplayImage(product: Product, selectedColor = ''): string {
+export function getProductDisplayImage(
+  product: Product | null | undefined,
+  selectedColor = ''
+): string {
+  if (!product) return '';
+  const colors = product.colors ?? [];
+  const images = product.images ?? [];
   if (selectedColor) {
-    const color = product.colors.find((c) => c.name === selectedColor);
+    const color = colors.find((c) => c.name === selectedColor);
     if (color?.imageUrl) return color.imageUrl;
   }
-  const firstColorImg = product.colors.find((c) => c.imageUrl)?.imageUrl;
-  return product.images[0]?.url || firstColorImg || '';
+  const firstColorImg = colors.find((c) => c.imageUrl)?.imageUrl;
+  return images[0]?.url || firstColorImg || '';
 }
 
 export function getProductGalleryUrls(product: Product, selectedColor = ''): string[] {

@@ -223,15 +223,15 @@ router.delete('/products/:id', async (req, res) => {
       return res.status(404).json({ message: 'Товар не найден' });
     }
 
-    const inActiveOrders = await prisma.orderItem.count({
+    const inPendingOrders = await prisma.orderItem.count({
       where: {
         productId: id,
-        order: { status: { not: 'CANCELLED' } },
+        order: { status: { in: ['NEW', 'PROCESSING'] } },
       },
     });
-    if (inActiveOrders > 0) {
+    if (inPendingOrders > 0) {
       return res.status(400).json({
-        message: 'Нельзя удалить: товар в активных заказах. Сначала завершите или отмените заказы.',
+        message: 'Нельзя удалить: товар в новых или обрабатываемых заказах. Сначала завершите или отмените их.',
       });
     }
 
@@ -434,7 +434,16 @@ router.get('/orders', async (req, res) => {
       take: limitNum,
       include: {
         user: { select: { id: true, name: true, email: true } },
-        orderItems: { include: { product: { include: { images: { take: 1 } } } } },
+        orderItems: {
+          include: {
+            product: {
+              include: {
+                images: { take: 1, orderBy: { order: 'asc' } },
+                colors: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     }),

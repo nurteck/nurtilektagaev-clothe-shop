@@ -31,12 +31,17 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const load = () => {
     setLoading(true);
+    setError('');
     api.get<{ orders: Order[] }>('/admin/orders?limit=200')
-      .then((d) => setOrders(d.orders))
-      .catch(console.error)
+      .then((d) => setOrders(d.orders ?? []))
+      .catch((err) => {
+        setOrders([]);
+        setError(err instanceof Error ? err.message : 'Не удалось загрузить заказы');
+      })
       .finally(() => setLoading(false));
   };
 
@@ -51,7 +56,9 @@ export default function AdminOrders() {
       DELIVERED: 0,
       CANCELLED: 0,
     };
-    orders.forEach((o) => { c[o.status] += 1; });
+    orders.forEach((o) => {
+      if (o.status in c) c[o.status] += 1;
+    });
     return c;
   }, [orders]);
 
@@ -94,7 +101,7 @@ export default function AdminOrders() {
   };
 
   return (
-    <div>
+    <div className={orderStyles.page}>
       <div className={styles.toolbar}>
         <div>
           <h1 className={styles.pageTitle}>Заказы</h1>
@@ -116,11 +123,13 @@ export default function AdminOrders() {
         ))}
       </div>
 
+      {error && <p className={styles.formError}>{error}</p>}
+
       {loading ? (
         <div className={orderStyles.empty}>Загрузка...</div>
       ) : filtered.length === 0 ? (
         <div className={orderStyles.empty}>
-          <p>Нет заказов в этом разделе</p>
+          <p>{error ? 'Попробуйте обновить страницу' : 'Нет заказов в этом разделе'}</p>
         </div>
       ) : (
         <div className={orderStyles.list}>
@@ -139,8 +148,8 @@ export default function AdminOrders() {
                     })}
                   </time>
                 </div>
-                <span className={`${orderStyles.statusBadge} ${STATUS_CLASS[o.status]}`}>
-                  {ORDER_STATUS_LABELS[o.status]}
+                <span className={`${orderStyles.statusBadge} ${STATUS_CLASS[o.status] ?? ''}`}>
+                  {ORDER_STATUS_LABELS[o.status] ?? o.status}
                 </span>
               </div>
 
@@ -167,33 +176,41 @@ export default function AdminOrders() {
 
               {o.orderItems?.length > 0 && (
                 <ul className={orderStyles.items}>
-                  {o.orderItems.map((item) => (
-                    <li key={item.id} className={orderStyles.item}>
-                      {getProductDisplayImage(item.product, item.color || '') && (
-                        <img
-                          src={resolveMediaUrl(getProductDisplayImage(item.product, item.color || ''))}
-                          alt=""
-                          className={orderStyles.itemImg}
-                        />
-                      )}
-                      <div className={orderStyles.itemInfo}>
-                        <span className={orderStyles.itemName}>{item.product.name}</span>
-                        <span className={orderStyles.itemMeta}>
-                          {item.quantity} шт.
-                          {item.size ? ` · ${item.size}` : ''}
-                          {item.color ? ` · ${item.color}` : ''}
-                        </span>
-                      </div>
-                      <span className={orderStyles.itemPrice}>{formatPrice(item.price * item.quantity)}</span>
-                    </li>
-                  ))}
+                  {o.orderItems.map((item) => {
+                    const imageUrl = getProductDisplayImage(item.product, item.color || '');
+                    const itemName = item.product?.name ?? 'Товар удалён';
+                    const itemPrice = Number(item.price) * item.quantity;
+
+                    return (
+                      <li key={item.id} className={orderStyles.item}>
+                        {imageUrl ? (
+                          <img
+                            src={resolveMediaUrl(imageUrl)}
+                            alt=""
+                            className={orderStyles.itemImg}
+                          />
+                        ) : (
+                          <div className={orderStyles.itemImgPlaceholder} />
+                        )}
+                        <div className={orderStyles.itemInfo}>
+                          <span className={orderStyles.itemName}>{itemName}</span>
+                          <span className={orderStyles.itemMeta}>
+                            {item.quantity} шт.
+                            {item.size ? ` · ${item.size}` : ''}
+                            {item.color ? ` · ${item.color}` : ''}
+                          </span>
+                        </div>
+                        <span className={orderStyles.itemPrice}>{formatPrice(itemPrice)}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
 
               <div className={orderStyles.cardFoot}>
                 <div className={orderStyles.total}>
                   <span>Итого</span>
-                  <strong>{formatPrice(o.total)}</strong>
+                  <strong>{formatPrice(Number(o.total))}</strong>
                 </div>
                 <div className={orderStyles.statusChange}>
                   <label htmlFor={`status-${o.id}`}>Статус</label>
