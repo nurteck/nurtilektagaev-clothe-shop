@@ -18,18 +18,8 @@ async function uniqueCategorySlug(name: string, excludeId?: string): Promise<str
     slug = `${base}-${counter}`;
   }
 }
-import { getProductImageUrl } from '../utils/productImage.js';
 import { replaceProductVariants } from '../utils/productVariants.js';
 import { decrementStock, getDefaultBrandId, restoreStock } from '../utils/stock.js';
-
-function formatSom(amount: number): string {
-  return `${amount.toLocaleString('ru-RU')} сом`;
-}
-
-function calcDiscountPercent(oldPrice: number, salePrice: number): number {
-  if (oldPrice <= salePrice) return 0;
-  return Math.round((1 - salePrice / oldPrice) * 100);
-}
 
 const ORDER_STATUSES = ['NEW', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const;
 
@@ -250,7 +240,6 @@ router.delete('/products/:id', async (req, res) => {
       await tx.cartItem.deleteMany({ where: { productId: id } });
       await tx.favorite.deleteMany({ where: { productId: id } });
       await tx.review.deleteMany({ where: { productId: id } });
-      await tx.banner.updateMany({ where: { productId: id }, data: { productId: null } });
       await tx.product.delete({ where: { id } });
     });
 
@@ -343,129 +332,6 @@ router.put('/brands/:id', async (req, res) => {
 router.delete('/brands/:id', async (req, res) => {
   await prisma.brand.delete({ where: { id: req.params.id } });
   res.json({ message: 'Бренд удален' });
-});
-
-async function bannerFromProduct(
-  productId: string,
-  opts?: { salePrice?: number; oldPrice?: number }
-) {
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product) throw new Error('Товар не найден');
-
-  const image = await getProductImageUrl(productId);
-  if (!image) throw new Error('У товара нет фото — добавьте изображение в товар или цвет');
-
-  const salePrice = opts?.salePrice ?? Number(product.price);
-  const oldPrice = opts?.oldPrice ?? (product.oldPrice ? Number(product.oldPrice) : Number(product.price));
-  const discount = calcDiscountPercent(oldPrice, salePrice);
-
-  const subtitle =
-    discount > 0
-      ? `${formatSom(salePrice)} вместо ${formatSom(oldPrice)} · −${discount}%`
-      : formatSom(salePrice);
-
-  return {
-    title: product.name,
-    subtitle,
-    image,
-    link: `/product/${product.slug}`,
-    productId: product.id,
-  };
-}
-
-async function applyProductSale(productId: string, salePrice: number, oldPrice: number) {
-  const sale = Number(salePrice);
-  const old = Number(oldPrice);
-  if (!sale || sale <= 0) throw new Error('Укажите корректную цену акции');
-  if (!old || old <= sale) throw new Error('Старая цена должна быть выше новой');
-
-  await prisma.product.update({
-    where: { id: productId },
-    data: {
-      price: sale,
-      oldPrice: old,
-      isSale: true,
-    },
-  });
-}
-
-// Banners CRUD
-router.get('/banners', async (_req, res) => {
-  const banners = await prisma.banner.findMany({
-    orderBy: { order: 'asc' },
-    include: { product: { select: { id: true, name: true, slug: true } } },
-  });
-  res.json(banners);
-});
-
-router.post('/banners', async (req, res) => {
-  try {
-    const { productId, salePrice, oldPrice, isActive, order } = req.body;
-    const id = productId ? String(productId) : '';
-
-    if (!id) {
-      res.status(400).json({ message: 'Выберите товар из каталога' });
-      return;
-    }
-
-    if (salePrice != null && oldPrice != null) {
-      await applyProductSale(id, Number(salePrice), Number(oldPrice));
-    }
-
-    const fromProduct = await bannerFromProduct(id, {
-      salePrice: salePrice != null ? Number(salePrice) : undefined,
-      oldPrice: oldPrice != null ? Number(oldPrice) : undefined,
-    });
-
-    const banner = await prisma.banner.create({
-      data: {
-        ...fromProduct,
-        isActive: isActive ?? true,
-        order: order ?? 0,
-      },
-    });
-    res.status(201).json(banner);
-  } catch (err) {
-    res.status(400).json({ message: err instanceof Error ? err.message : 'Ошибка' });
-  }
-});
-
-router.put('/banners/:id', async (req, res) => {
-  try {
-    const { productId, salePrice, oldPrice, isActive, order } = req.body;
-    const id = productId ? String(productId) : '';
-
-    if (!id) {
-      res.status(400).json({ message: 'Выберите товар из каталога' });
-      return;
-    }
-
-    if (salePrice != null && oldPrice != null) {
-      await applyProductSale(id, Number(salePrice), Number(oldPrice));
-    }
-
-    const fromProduct = await bannerFromProduct(id, {
-      salePrice: salePrice != null ? Number(salePrice) : undefined,
-      oldPrice: oldPrice != null ? Number(oldPrice) : undefined,
-    });
-
-    const banner = await prisma.banner.update({
-      where: { id: String(req.params.id) },
-      data: {
-        ...fromProduct,
-        isActive,
-        order,
-      },
-    });
-    res.json(banner);
-  } catch (err) {
-    res.status(400).json({ message: err instanceof Error ? err.message : 'Ошибка' });
-  }
-});
-
-router.delete('/banners/:id', async (req, res) => {
-  await prisma.banner.delete({ where: { id: req.params.id } });
-  res.json({ message: 'Баннер удален' });
 });
 
 // Orders management

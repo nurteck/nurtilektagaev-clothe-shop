@@ -7,7 +7,6 @@ const NAV = [
   { path: '/admin', label: 'Обзор', exact: true },
   { path: '/admin/categories', label: 'Категории' },
   { path: '/admin/products', label: 'Товары' },
-  { path: '/admin/banners', label: 'Акции' },
   { path: '/admin/orders', label: 'Заказы' },
 ];
 

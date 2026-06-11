@@ -17,7 +17,6 @@ import AdminLayout from './pages/Admin/AdminLayout';
 import Dashboard from './pages/Admin/Dashboard';
 import AdminProducts from './pages/Admin/Products';
 import AdminCategories from './pages/Admin/Categories';
-import AdminBanners from './pages/Admin/Banners';
 import AdminOrders from './pages/Admin/Orders';
 
 export default function App() {
@@ -43,7 +42,6 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="products" element={<AdminProducts />} />
         <Route path="categories" element={<AdminCategories />} />
-        <Route path="banners" element={<AdminBanners />} />
         <Route path="orders" element={<AdminOrders />} />
       </Route>
     </Routes>

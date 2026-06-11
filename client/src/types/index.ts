@@ -92,18 +92,6 @@ export interface Product {
   favoriteId?: string;
 }
 
-export interface Banner {
-  id: string;
-  title: string;
-  subtitle?: string | null;
-  image: string;
-  link?: string | null;
-  productId?: string | null;
-  product?: { id: string; name: string; slug: string } | null;
-  isActive: boolean;
-  order: number;
-}
-
 export interface CartItem {
   id: string;
   quantity: number;

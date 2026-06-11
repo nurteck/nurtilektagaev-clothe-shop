@@ -481,8 +481,9 @@ export default function AdminProducts() {
                   <input className={styles.adminInput} type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
                 </div>
                 <div className={styles.formRow}>
-                  <label>Старая цена (акция)</label>
-                  <input className={styles.adminInput} type="number" value={form.oldPrice} onChange={(e) => setForm({ ...form, oldPrice: e.target.value })} placeholder="Если больше цены — скидка" />
+                  <label>Старая цена (скидка)</label>
+                  <input className={styles.adminInput} type="number" value={form.oldPrice} onChange={(e) => setForm({ ...form, oldPrice: e.target.value })} placeholder="Например: 3500" />
+                  <p className={styles.sizesHint}>Если старая цена выше обычной — товар попадёт на главный баннер и в раздел «Скидки»</p>
                 </div>
               </div>
               <div className={styles.formRow}>

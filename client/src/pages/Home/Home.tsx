@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
@@ -13,14 +13,33 @@ import ProductCard from '../../components/ProductCard/ProductCard';
 
 import QuickChoice from '../../components/QuickChoice/QuickChoice';
 
-import type { Banner, Category, Product } from '../../types';
+import type { Category, Product } from '../../types';
 
 import styles from './Home.module.css';
 
-function parseDiscountFromSubtitle(subtitle?: string): number {
-  if (!subtitle) return 0;
-  const match = subtitle.match(/−(\d+)%/);
-  return match ? parseInt(match[1], 10) : 0;
+interface HeroSlide {
+  id: string;
+  title: string;
+  link: string;
+  image: string;
+  discount: number;
+  salePrice: string;
+  oldPrice?: string;
+}
+
+function productToHeroSlide(p: Product): HeroSlide | null {
+  const image = getProductDisplayImage(p);
+  if (!image || !p.oldPrice || p.oldPrice <= p.price) return null;
+
+  return {
+    id: p.id,
+    title: p.name,
+    link: `/product/${p.slug}`,
+    image,
+    discount: Math.round((1 - p.price / p.oldPrice) * 100),
+    salePrice: formatPrice(p.price),
+    oldPrice: formatPrice(p.oldPrice),
+  };
 }
 
 export default function Home() {
@@ -33,9 +52,7 @@ export default function Home() {
 
   const [categories, setCategories] = useState<Category[]>([]);
 
-  const [banners, setBanners] = useState<Banner[]>([]);
-
-  const [activePromo, setActivePromo] = useState(0);
+  const [activeSlide, setActiveSlide] = useState(0);
 
   const [loading, setLoading] = useState(true);
 
@@ -45,17 +62,13 @@ export default function Home() {
 
     Promise.all([
 
-      api.get<Banner[]>('/banners').catch(() => []),
-
-      api.get<{ products: Product[] }>('/products?isSale=true&limit=6').catch(() => ({ products: [] })),
+      api.get<{ products: Product[] }>('/products?isSale=true&limit=12').catch(() => ({ products: [] })),
 
       api.get<{ products: Product[] }>('/products?isNew=true&sort=new&limit=8').catch(() => ({ products: [] })),
 
       api.get<Category[]>('/categories').catch(() => []),
 
-    ]).then(([bannerData, saleData, newData, cats]) => {
-
-      setBanners(bannerData);
+    ]).then(([saleData, newData, cats]) => {
 
       setSaleProducts(saleData.products);
 
@@ -69,47 +82,30 @@ export default function Home() {
 
 
 
-  const promos = banners.length > 0
-
-    ? banners.map((b) => ({
-
-        title: b.title,
-
-        subtitle: b.subtitle || '',
-
-        link: b.link || '/catalog',
-
-        image: b.image,
-
-        discount: parseDiscountFromSubtitle(b.subtitle ?? undefined),
-
-      }))
-
-    : saleProducts.slice(0, 3).map((p) => ({
-
-        title: `Скидка на ${p.name}`,
-
-        subtitle: `${formatPrice(p.price)}${p.oldPrice ? ` вместо ${formatPrice(p.oldPrice)}` : ''}`,
-
-        link: `/product/${p.slug}`,
-
-        image: getProductDisplayImage(p) || null,
-
-        discount: p.oldPrice ? Math.round((1 - p.price / p.oldPrice) * 100) : 0,
-
-      }));
+  const heroSlides = useMemo(
+    () => saleProducts.map(productToHeroSlide).filter((s): s is HeroSlide => s !== null),
+    [saleProducts],
+  );
 
 
 
   useEffect(() => {
 
-    if (promos.length <= 1) return;
+    if (heroSlides.length <= 1) return;
 
-    const timer = setInterval(() => setActivePromo((p) => (p + 1) % promos.length), 5000);
+    const timer = setInterval(() => setActiveSlide((i) => (i + 1) % heroSlides.length), 5000);
 
     return () => clearInterval(timer);
 
-  }, [promos.length]);
+  }, [heroSlides.length]);
+
+
+
+  useEffect(() => {
+
+    if (activeSlide >= heroSlides.length) setActiveSlide(0);
+
+  }, [activeSlide, heroSlides.length]);
 
 
 
@@ -119,7 +115,7 @@ export default function Home() {
 
   const hasContent = newProducts.length > 0 || categories.length > 0 || saleProducts.length > 0;
 
-  const currentPromo = promos[activePromo];
+  const currentSlide = heroSlides[activeSlide];
 
 
 
@@ -127,53 +123,63 @@ export default function Home() {
 
     <div className={styles.home}>
 
-      {currentPromo && (
+      {currentSlide && (
 
         <section className={styles.hero}>
+          <div className={styles.heroBg} aria-hidden />
 
-          {currentPromo.image ? (
+          <div className={styles.heroInner}>
+            <div key={currentSlide.id} className={`${styles.heroContent} ${styles.heroSlide}`}>
+              <div className={styles.heroBadges}>
+                <span className={styles.heroTag}>Скидка</span>
+                {currentSlide.discount > 0 && (
+                  <span className={styles.heroDiscountBadge}>−{currentSlide.discount}%</span>
+                )}
+              </div>
 
-            <div className={styles.heroMedia}>
+              <h2 className={styles.heroTitle}>{currentSlide.title}</h2>
 
-              <img src={resolveMediaUrl(currentPromo.image)} alt="" className={styles.heroImg} loading="eager" />
+              <div className={styles.heroPrices}>
+                <span className={styles.heroPriceNew}>{currentSlide.salePrice}</span>
+                {currentSlide.oldPrice && (
+                  <span className={styles.heroPriceOld}>{currentSlide.oldPrice}</span>
+                )}
+              </div>
 
+              <Link to={currentSlide.link} className={styles.heroBtn}>
+                Смотреть товар →
+              </Link>
             </div>
 
-          ) : (
-
-            <div className={styles.heroGradient} />
-
-          )}
-
-          <div className={styles.heroContent}>
-
-            <span className={styles.heroTag}>Акция</span>
-
-            {'discount' in currentPromo && currentPromo.discount > 0 && (
-              <span className={styles.heroDiscount}>−{currentPromo.discount}%</span>
-            )}
-
-            <h2>{currentPromo.title}</h2>
-
-            {currentPromo.subtitle && <p>{currentPromo.subtitle}</p>}
-
-            <Link to={currentPromo.link} className={styles.heroBtn}>Смотреть</Link>
-
+            <div className={styles.heroMedia}>
+              <div key={currentSlide.id} className={`${styles.heroImgFrame} ${styles.heroSlide}`}>
+                <img
+                  src={resolveMediaUrl(currentSlide.image)}
+                  alt=""
+                  className={styles.heroImg}
+                  loading="eager"
+                />
+              </div>
+            </div>
           </div>
 
-          {promos.length > 1 && (
+          {heroSlides.length > 1 && (
 
             <div className={styles.dots}>
 
-              {promos.map((_, i) => (
+              {heroSlides.map((slide, i) => (
 
                 <button
 
-                  key={i}
+                  key={slide.id}
 
-                  className={`${styles.dot} ${i === activePromo ? styles.dotActive : ''}`}
+                  type="button"
 
-                  onClick={() => setActivePromo(i)}
+                  aria-label={`Слайд ${i + 1}`}
+
+                  className={`${styles.dot} ${i === activeSlide ? styles.dotActive : ''}`}
+
+                  onClick={() => setActiveSlide(i)}
 
                 />
 

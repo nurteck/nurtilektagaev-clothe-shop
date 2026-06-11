@@ -12,126 +12,214 @@
 
 .hero {
   position: relative;
-  height: 280px;
+  height: 300px;
   margin: 16px;
   border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(91, 33, 182, 0.25);
+}
+
+@media (min-width: 768px) {
+  .hero {
+    height: 360px;
+    max-width: var(--max-width);
+    margin: 24px auto;
+  }
+}
+
+.heroBg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 85% 50%, rgba(255, 255, 255, 0.12) 0%, transparent 45%),
+    linear-gradient(135deg, #5b21b6 0%, #7c3aed 45%, #4c1d95 100%);
+}
+
+.heroInner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+}
+
+.heroContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px 20px 24px 24px;
+  color: var(--white);
+}
+
+@media (min-width: 768px) {
+  .heroContent {
+    padding: 32px 24px 32px 36px;
+    max-width: 58%;
+  }
+}
+
+.heroBadges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.heroTag {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  flex-shrink: 0;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.heroDiscountBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  flex-shrink: 0;
+  min-width: 48px;
+  height: 48px;
+  padding: 0 10px;
+  background: #fff;
+  color: #dc2626;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  font-weight: 900;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.heroTitle {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+@media (min-width: 768px) {
+  .heroTitle {
+    font-size: 1.85rem;
+  }
+}
+
+.heroPrices {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.heroPriceNew {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 768px) {
+  .heroPriceNew {
+    font-size: 1.9rem;
+  }
+}
+
+.heroPriceOld {
+  font-size: 0.95rem;
+  opacity: 0.75;
+  text-decoration: line-through;
+}
+
+.heroMedia {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 16px 16px 0;
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .heroMedia {
+    padding: 24px 28px 24px 0;
+  }
+}
+
+.heroImgFrame {
+  position: relative;
+  width: 148px;
+  height: 210px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
   overflow: hidden;
 }
 
 @media (min-width: 768px) {
-  .hero { height: 340px; max-width: var(--max-width); margin: 24px auto; }
-}
-
-.heroMedia {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 46%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: linear-gradient(135deg, rgba(76, 29, 149, 0.35), rgba(124, 58, 237, 0.2));
+  .heroImgFrame {
+    width: 188px;
+    height: 268px;
+    padding: 12px;
+  }
 }
 
 .heroImg {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-}
-
-@media (max-width: 480px) {
-  .heroMedia {
-    width: 38%;
-    padding: 10px;
-  }
-}
-
-.heroGradient {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-}
-
-.heroContent {
-  position: relative;
-  z-index: 1;
+  width: 100%;
   height: 100%;
-  width: 62%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 24px 28px;
-  background: linear-gradient(90deg, rgba(91, 33, 182, 0.92) 0%, rgba(91, 33, 182, 0.55) 75%, transparent 100%);
-  color: var(--white);
+  object-fit: contain;
+  object-position: center;
 }
 
-@media (max-width: 480px) {
-  .heroContent {
-    width: 68%;
-    padding: 20px 16px;
+.heroSlide {
+  animation: heroFadeIn 0.45s ease;
+}
+
+@keyframes heroFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
-
-  .heroContent h2 {
-    font-size: 1.15rem;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-
-  .heroContent p {
-    font-size: 0.8rem;
-    margin-bottom: 14px;
-  }
-}
-
-.heroTag {
-  display: inline-block;
-  padding: 4px 12px;
-  background: rgba(255,255,255,0.2);
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  width: fit-content;
-  margin-bottom: 8px;
-}
-
-.heroDiscount {
-  display: inline-block;
-  margin-left: 8px;
-  margin-bottom: 12px;
-  padding: 4px 10px;
-  background: #FEE2E2;
-  color: #DC2626;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 800;
-}
-
-.heroContent h1 {
-  font-size: 1.6rem;
-  font-weight: 800;
-  margin-bottom: 8px;
-}
-
-.heroContent p {
-  font-size: 0.9rem;
-  opacity: 0.9;
-  margin-bottom: 20px;
 }
 
 .heroBtn {
   display: inline-flex;
-  padding: 12px 24px;
+  align-items: center;
+  padding: 13px 22px;
   background: var(--white);
-  color: var(--primary);
-  border-radius: 10px;
-  font-weight: 700;
+  color: var(--primary-dark);
+  border-radius: 12px;
+  font-weight: 800;
   font-size: 0.875rem;
   width: fit-content;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.heroBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
 }
 
 .welcomeHero {
@@ -237,12 +325,6 @@
 .emptyShop p {
   color: var(--gray-500);
   margin-bottom: 20px;
-}
-
-.heroContent h2 {
-  font-size: 1.6rem;
-  font-weight: 800;
-  margin-bottom: 8px;
 }
 
 .dots {
