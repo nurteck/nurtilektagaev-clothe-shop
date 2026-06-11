@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { api, formatPrice, getWhatsAppLink, resolveMediaUrl } from '../../services/api';
+import { api, formatPrice, getWhatsAppOrderLink, resolveMediaUrl } from '../../services/api';
 import { checkStock, useShop } from '../../context/ShopContext';
 import Button from '../../components/Button/Button';
 import type { Product } from '../../types';
@@ -114,6 +114,30 @@ export default function ProductPage() {
   const handleFavorite = () => {
     if (!product) return;
     toggleFavorite(product.id);
+  };
+
+  const handleWhatsAppOrder = () => {
+    if (!product) return;
+
+    if (product.variants.length > 0 && !selectedSize) {
+      setMessage('Выберите размер');
+      return;
+    }
+    if (product.colors.length > 0 && !selectedColor) {
+      setMessage('Выберите цвет');
+      return;
+    }
+
+    setMessage('');
+    const url = getWhatsAppOrderLink({
+      name: product.name,
+      slug: product.slug,
+      color: selectedColor || undefined,
+      size: selectedSize || undefined,
+      quantity,
+      price: product.price * quantity,
+    });
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   if (loading) return <div className={styles.loading}>Загрузка...</div>;
@@ -289,14 +313,14 @@ export default function ProductPage() {
             <Button variant="outline" onClick={handleFavorite} size="lg">
               {product && isFavorite(product.id) ? '♥ В избранном' : '♡ В избранное'}
             </Button>
-            <a
-              href={getWhatsAppLink(product.name)}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
               className={styles.whatsappBtn}
+              onClick={handleWhatsAppOrder}
+              disabled={!hasAnyStock || maxStock === 0}
             >
               Заказать через WhatsApp
-            </a>
+            </button>
           </div>
 
           {message && <p className={styles.message}>{message}</p>}

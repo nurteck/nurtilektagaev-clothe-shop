@@ -358,9 +358,14 @@
   transition: var(--transition);
 }
 
-.whatsappBtn:hover {
+.whatsappBtn:hover:not(:disabled) {
   background: var(--primary-light);
   color: var(--white);
+}
+
+.whatsappBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .message {

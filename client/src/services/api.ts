@@ -73,6 +73,33 @@ export function formatPrice(price: number): string {
 
 export { getWhatsAppUrl };
 
+export interface WhatsAppOrderDetails {
+  name: string;
+  slug?: string;
+  color?: string;
+  size?: string;
+  quantity?: number;
+  price?: number;
+}
+
+export function buildWhatsAppOrderMessage(details: WhatsAppOrderDetails): string {
+  const lines = ['Здравствуйте!', '', 'Хочу заказать:'];
+  lines.push(`Товар: ${details.name}`);
+  if (details.color) lines.push(`Цвет: ${details.color}`);
+  if (details.size) lines.push(`Размер: ${details.size}`);
+  if (details.quantity) lines.push(`Количество: ${details.quantity} шт.`);
+  if (details.price) lines.push(`Сумма: ${formatPrice(details.price)}`);
+  if (details.slug && typeof window !== 'undefined') {
+    lines.push('', `Ссылка: ${window.location.origin}/product/${details.slug}`);
+  }
+  lines.push('', 'Можно оформить заказ?');
+  return lines.join('\n');
+}
+
+export function getWhatsAppOrderLink(details: WhatsAppOrderDetails): string {
+  return getWhatsAppUrl(buildWhatsAppOrderMessage(details));
+}
+
 export function getWhatsAppLink(productName: string): string {
   return getWhatsAppUrl(`Здравствуйте! Хочу заказать: ${productName}`);
 }
