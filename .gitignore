@@ -8,6 +8,8 @@ build/
 Thumbs.db
 server/uploads/*
 !server/uploads/.gitkeep
+client/public/img/*
+!client/public/img/.gitkeep
 .vscode/
 .idea/
 *.tsbuildinfo

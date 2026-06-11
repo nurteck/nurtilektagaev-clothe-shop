@@ -90,20 +90,6 @@ export interface Product {
   favoriteId?: string;
 }
 
-export interface HomeNavCard {
-  id: string;
-  slug: string;
-  title: string;
-  subtitle: string;
-  image?: string | null;
-  link: string;
-  badgeText?: string | null;
-  badgeIcon?: string | null;
-  promo?: string | null;
-  order: number;
-  isActive: boolean;
-}
-
 export interface Banner {
   id: string;
   title: string;

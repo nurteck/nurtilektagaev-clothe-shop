@@ -1,24 +1,8 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../services/api';
-import type { HomeNavCard } from '../../types';
+import { QUICK_CHOICE_CARDS } from '../../config/quickChoice';
 import styles from './QuickChoice.module.css';
 
 export default function QuickChoice() {
-  const [cards, setCards] = useState<HomeNavCard[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    api.get<HomeNavCard[]>('/home-nav')
-      .then(setCards)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Ошибка загрузки'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading || error) return null;
-  if (cards.length === 0) return null;
-
   return (
     <section className={styles.section}>
       <div className={styles.header}>
@@ -30,7 +14,7 @@ export default function QuickChoice() {
       </div>
 
       <div className={styles.grid}>
-        {cards.map((item) => (
+        {QUICK_CHOICE_CARDS.map((item) => (
           <Link key={item.id} to={item.link} className={styles.card}>
             <div className={styles.cardBody}>
               <h3>{item.title}</h3>
@@ -50,12 +34,19 @@ export default function QuickChoice() {
 
             <div className={styles.imageWrap}>
               {item.image ? (
-                <img src={item.image} alt="" className={styles.image} />
-              ) : (
-                <div className={`${styles.placeholder} ${styles.placeholderVisible}`}>
-                  <span>Фото</span>
-                </div>
-              )}
+                <img
+                  src={item.image}
+                  alt=""
+                  className={styles.image}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.add(styles.placeholderVisible);
+                  }}
+                />
+              ) : null}
+              <div className={`${styles.placeholder} ${!item.image ? styles.placeholderVisible : ''}`}>
+                <span>Фото</span>
+              </div>
             </div>
           </Link>
         ))}

@@ -5,7 +5,6 @@ import styles from './Admin.module.css';
 
 const NAV = [
   { path: '/admin', label: 'Обзор', exact: true },
-  { path: '/admin/home-nav', label: 'Главная' },
   { path: '/admin/categories', label: 'Категории' },
   { path: '/admin/products', label: 'Товары' },
   { path: '/admin/banners', label: 'Акции' },

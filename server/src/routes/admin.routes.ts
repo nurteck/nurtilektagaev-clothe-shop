@@ -17,7 +17,6 @@ async function uniqueCategorySlug(name: string, excludeId?: string): Promise<str
     slug = `${base}-${counter}`;
   }
 }
-import { ensureHomeNavCards } from '../utils/homeNav.js';
 import { decrementStock, getDefaultBrandId, restoreStock } from '../utils/stock.js';
 
 const ORDER_STATUSES = ['NEW', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const;
@@ -293,30 +292,6 @@ router.put('/brands/:id', async (req, res) => {
 router.delete('/brands/:id', async (req, res) => {
   await prisma.brand.delete({ where: { id: req.params.id } });
   res.json({ message: 'Бренд удален' });
-});
-
-// Home navigation cards
-router.get('/home-nav', async (_req, res) => {
-  await ensureHomeNavCards();
-  const cards = await prisma.homeNavCard.findMany({ orderBy: { order: 'asc' } });
-  res.json(cards);
-});
-
-router.put('/home-nav/:id', async (req, res) => {
-  const { title, subtitle, image, badgeText, badgeIcon, promo, isActive } = req.body;
-  const card = await prisma.homeNavCard.update({
-    where: { id: String(req.params.id) },
-    data: {
-      ...(title !== undefined && { title }),
-      ...(subtitle !== undefined && { subtitle }),
-      ...(image !== undefined && { image: image || null }),
-      ...(badgeText !== undefined && { badgeText: badgeText || null }),
-      ...(badgeIcon !== undefined && { badgeIcon: badgeIcon || null }),
-      ...(promo !== undefined && { promo: promo || null }),
-      ...(isActive !== undefined && { isActive }),
-    },
-  });
-  res.json(card);
 });
 
 async function bannerFromProduct(productId: string) {
