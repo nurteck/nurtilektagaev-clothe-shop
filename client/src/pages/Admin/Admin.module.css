@@ -1168,6 +1168,26 @@
   min-height: 44px;
 }
 
+.confirmDeleteBtn {
+  padding: 10px 20px;
+  background: var(--danger);
+  color: var(--white);
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: var(--transition);
+}
+
+.confirmDeleteBtn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.confirmDeleteBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .shoeSizeGrid {
   grid-template-columns: repeat(4, 1fr);
 }

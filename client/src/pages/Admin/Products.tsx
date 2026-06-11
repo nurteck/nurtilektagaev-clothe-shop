@@ -722,10 +722,9 @@ export default function AdminProducts() {
               </button>
               <button
                 type="button"
-                className={`${styles.adminPrimaryBtn} ${styles.deleteBtn}`}
+                className={styles.confirmDeleteBtn}
                 onClick={confirmDelete}
                 disabled={deleting}
-                style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}
               >
                 {deleting ? 'Удаление...' : 'Удалить'}
               </button>

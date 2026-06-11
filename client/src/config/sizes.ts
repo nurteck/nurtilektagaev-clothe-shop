@@ -58,7 +58,7 @@ export function getProductSizesForDisplay(
   selectedColor = ''
 ): DisplaySize[] {
   const preset = getSizePreset(product.category);
-  return getSizesForColor(product, selectedColor, preset);
+  return getSizesForColor(product, selectedColor, preset).filter((s) => s.stock > 0);
 }
 
 export function firstAvailableSize(product: Product, selectedColor = ''): string {
