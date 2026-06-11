@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { api, formatPrice } from '../../services/api';
+import { api, formatPrice, resolveMediaUrl } from '../../services/api';
+import { getProductDisplayImage } from '../../config/variants';
 import type { Banner, Category, Product } from '../../types';
 import styles from './Admin.module.css';
 
@@ -126,7 +127,7 @@ export default function AdminBanners() {
     }
   };
 
-  const previewImage = selectedProduct?.images[0]?.url;
+  const previewImage = selectedProduct ? getProductDisplayImage(selectedProduct) : undefined;
   const previewTitle = selectedProduct?.name || '';
   const previewSubtitle = selectedProduct
     ? selectedProduct.oldPrice
@@ -155,7 +156,7 @@ export default function AdminBanners() {
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {b.image && (
-                      <img src={b.image} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
+                      <img src={resolveMediaUrl(b.image)} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
                     )}
                     <span>{b.product?.name || b.title}</span>
                   </div>
@@ -229,7 +230,7 @@ export default function AdminBanners() {
                   }}>
                     {previewImage ? (
                       <img
-                        src={previewImage}
+                        src={resolveMediaUrl(previewImage)}
                         alt={previewTitle}
                         style={{ width: 80, height: 100, borderRadius: 8, objectFit: 'cover' }}
                       />

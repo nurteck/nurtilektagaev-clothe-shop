@@ -1,4 +1,5 @@
 import type { Category, Product } from '../types';
+import { getSizesForColor, getVariantStock } from './variants';
 
 export type SizePreset = 'clothing' | 'shoes';
 
@@ -47,47 +48,30 @@ export interface DisplaySize {
   id: string;
 }
 
-export function displayShoeSizes(
-  productSizes: { id: string; size: string; stock: number }[]
+export function getProductSizesForDisplay(
+  product: Product,
+  selectedColor = ''
 ): DisplaySize[] {
-  const map = new Map(productSizes.map((s) => [s.size, s]));
-  return SHOE_SIZES.map((size) => {
-    const found = map.get(size);
-    return {
-      size,
-      stock: found?.stock ?? 0,
-      id: found?.id ?? size,
-    };
-  });
+  const preset = getSizePreset(product.category);
+  return getSizesForColor(product, selectedColor, preset);
 }
 
-export function firstAvailableSize(
-  product: Product
-): string {
-  if (isShoeProduct(product)) {
-    const displayed = displayShoeSizes(product.sizes);
-    const available = displayed.find((s) => s.stock > 0);
-    return available?.size ?? SHOE_SIZES[0];
-  }
-  const available = product.sizes.find((s) => s.stock > 0);
-  return available?.size ?? product.sizes[0]?.size ?? '';
+export function firstAvailableSize(product: Product, selectedColor = ''): string {
+  const displayed = getProductSizesForDisplay(product, selectedColor);
+  const available = displayed.find((s) => s.stock > 0);
+  return available?.size ?? displayed[0]?.size ?? '';
 }
 
-export function getProductSizesForDisplay(product: Product): DisplaySize[] {
-  if (isShoeProduct(product)) {
-    return displayShoeSizes(product.sizes);
-  }
-  return product.sizes.map((s) => ({
-    size: s.size,
-    stock: s.stock,
-    id: s.id,
-  }));
-}
-
-export function getStockForSize(product: Product, size: string): number {
+export function getStockForSize(
+  product: Product,
+  size: string,
+  selectedColor = ''
+): number {
   if (!size) return product.stock;
-  if (isShoeProduct(product)) {
-    return displayShoeSizes(product.sizes).find((s) => s.size === size)?.stock ?? 0;
-  }
-  return product.sizes.find((s) => s.size === size)?.stock ?? product.stock;
+  const colorKey = product.colors.length > 0 ? selectedColor : '';
+  return getVariantStock(product.variants, size, colorKey);
+}
+
+export function getMaxStock(product: Product, size: string, selectedColor = ''): number {
+  return getStockForSize(product, size, selectedColor);
 }

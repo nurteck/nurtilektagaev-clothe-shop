@@ -803,6 +803,140 @@
   overflow-y: auto;
 }
 
+.modalContentWide {
+  max-width: 720px;
+}
+
+.colorsBlock {
+  padding: 16px;
+  background: var(--primary-bg);
+  border: 1px solid #ddd6fe;
+  border-radius: 12px;
+}
+
+.colorPresetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.colorPresetDot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.colorGroupCard {
+  border: 2px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--gray-50);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.colorGroupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.colorGroupTitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+}
+
+.colorGroupTop {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.colorGroupPhoto img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--gray-200);
+}
+
+.colorGroupPhotoPlaceholder {
+  width: 100px;
+  height: 100px;
+  border-radius: 10px;
+  background: var(--white);
+  border: 2px dashed var(--gray-300);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: var(--gray-400);
+  margin-bottom: 8px;
+}
+
+.colorGroupPhoto {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.colorGroupFields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.colorPickerRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--gray-500);
+}
+
+.colorPickerRow input[type='color'] {
+  width: 48px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.colorGroupSizesLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--gray-600);
+}
+
+.colorGroupSizes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.imagePreviewRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.previewThumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+}
+
 @media (max-width: 767px) {
   .modal {
     align-items: flex-end;

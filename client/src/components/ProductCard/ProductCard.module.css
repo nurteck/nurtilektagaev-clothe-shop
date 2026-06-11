@@ -121,6 +121,20 @@
   text-decoration: line-through;
 }
 
+.colorDots {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.colorDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--gray-200);
+  flex-shrink: 0;
+}
+
 .rating {
   display: flex;
   align-items: center;

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { resolveMediaUrl } from '../../services/api';
 import styles from './CategoryCard.module.css';
 
 interface Props {
@@ -18,7 +19,7 @@ export default function CategoryCard({ id, slug, name, image, audience, classNam
     <Link to={`/catalog?${params}`} className={`${styles.card} ${className || ''}`}>
       <div className={styles.imageArea}>
         {image ? (
-          <img src={image} alt={name} className={styles.image} loading="lazy" />
+          <img src={resolveMediaUrl(image)} alt={name} className={styles.image} loading="lazy" />
         ) : (
           <div className={styles.placeholder}>
             <span>{name.charAt(0).toUpperCase()}</span>

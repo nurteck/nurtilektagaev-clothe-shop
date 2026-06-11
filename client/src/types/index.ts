@@ -31,9 +31,10 @@ export interface ProductImage {
   order: number;
 }
 
-export interface ProductSize {
+export interface ProductVariant {
   id: string;
   size: string;
+  color: string;
   stock: number;
 }
 
@@ -41,6 +42,7 @@ export interface ProductColor {
   id: string;
   name: string;
   hex: string;
+  imageUrl?: string | null;
 }
 
 export interface Review {
@@ -82,7 +84,7 @@ export interface Product {
   category: Category;
   brand: Brand;
   images: ProductImage[];
-  sizes: ProductSize[];
+  variants: ProductVariant[];
   colors: ProductColor[];
   reviews?: Review[];
   avgRating?: number;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, formatPrice } from '../../services/api';
+import { api, formatPrice, resolveMediaUrl } from '../../services/api';
+import { getProductDisplayImage } from '../../config/variants';
 import { checkStock, useShop, type LocalCartItem } from '../../context/ShopContext';
 import { formatPhoneInput, normalizePhone } from '../../utils/phone';
 import Button from '../../components/Button/Button';
@@ -82,7 +83,7 @@ export default function Checkout() {
 
     try {
       for (const item of lines) {
-        const available = await checkStock(item.productId, item.size);
+        const available = await checkStock(item.productId, item.size, item.color);
         if (item.quantity > available) {
           setError(`«${item.product.name}»: доступно только ${available} шт.`);
           setLoading(false);
@@ -127,8 +128,12 @@ export default function Checkout() {
           <ul className={styles.items}>
             {lines.map((line) => (
               <li key={`${line.productId}-${line.size}-${line.color}`} className={styles.item}>
-                {line.product.images[0] && (
-                  <img src={line.product.images[0].url} alt="" className={styles.itemImg} />
+                {getProductDisplayImage(line.product, line.color || '') && (
+                  <img
+                    src={resolveMediaUrl(getProductDisplayImage(line.product, line.color || ''))}
+                    alt=""
+                    className={styles.itemImg}
+                  />
                 )}
                 <div className={styles.itemInfo}>
                   <span className={styles.itemName}>{line.product.name}</span>

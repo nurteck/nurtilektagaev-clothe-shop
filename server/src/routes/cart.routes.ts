@@ -36,7 +36,7 @@ router.get('/', async (req: AuthRequest, res) => {
 
 router.post('/', async (req: AuthRequest, res) => {
   const { productId, quantity = 1, size, color } = req.body;
-  const available = await getAvailableStock(productId, size);
+  const available = await getAvailableStock(productId, size, color);
 
   const existing = await prisma.cartItem.findFirst({
     where: { userId: req.user!.userId, productId, size: size || null, color: color || null },
@@ -74,7 +74,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
   });
   if (!item) return res.status(404).json({ message: 'Элемент не найден' });
 
-  const available = await getAvailableStock(item.productId, item.size);
+  const available = await getAvailableStock(item.productId, item.size, item.color);
   if (quantity > available) {
     return res.status(400).json({
       message: `Недостаточно на складе. Доступно: ${available} шт.`,

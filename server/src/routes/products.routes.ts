@@ -35,7 +35,7 @@ router.get('/by-ids', async (req, res) => {
       category: true,
       brand: true,
       images: { orderBy: { order: 'asc' } },
-      sizes: true,
+      variants: true,
       colors: true,
       reviews: { select: { rating: true } },
     },
@@ -47,7 +47,8 @@ router.get('/by-ids', async (req, res) => {
 router.get('/stock/:productId', async (req, res) => {
   const productId = String(req.params.productId);
   const size = req.query.size ? String(req.query.size) : undefined;
-  const available = await getAvailableStock(productId, size);
+  const color = req.query.color ? String(req.query.color) : undefined;
+  const available = await getAvailableStock(productId, size, color);
   res.json({ available });
 });
 
@@ -83,7 +84,7 @@ router.get('/', optionalAuth, async (req: AuthRequest, res) => {
   if (categoryId) where.categoryId = String(categoryId);
   else if (category) where.category = { slug: String(category) };
   if (brand) where.brand = { slug: String(brand) };
-  if (size) where.sizes = { some: { size: String(size) } };
+  if (size) where.variants = { some: { size: String(size) } };
   if (color) where.colors = { some: { name: { contains: String(color), mode: 'insensitive' } } };
   if (minPrice || maxPrice) {
     where.price = {};
@@ -135,7 +136,7 @@ router.get('/', optionalAuth, async (req: AuthRequest, res) => {
         category: true,
         brand: true,
         images: { orderBy: { order: 'asc' } },
-        sizes: true,
+        variants: true,
         colors: true,
         reviews: { select: { rating: true } },
       },
@@ -157,7 +158,7 @@ router.get('/:slug', optionalAuth, async (req, res) => {
       category: true,
       brand: true,
       images: { orderBy: { order: 'asc' } },
-      sizes: true,
+      variants: true,
       colors: true,
       reviews: {
         include: { user: { select: { id: true, name: true, avatar: true } } },

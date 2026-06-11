@@ -15,8 +15,11 @@ import favoritesRoutes from './routes/favorites.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import reviewsRoutes from './routes/reviews.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import mediaRoutes from './routes/media.routes.js';
+import { ensureUploadsDir, uploadsDir } from './utils/uploads.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+ensureUploadsDir();
 const app = express();
 
 if (env.isProd) {
@@ -25,11 +28,13 @@ if (env.isProd) {
 
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+app.use('/uploads', express.static(uploadsDir));
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', name: 'Oshop API' });
 });
+
+app.use('/api/media', mediaRoutes);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productsRoutes);

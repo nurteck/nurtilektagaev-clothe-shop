@@ -9,31 +9,44 @@ function normalizeSize(size?: string | null): string | undefined {
   return value || undefined;
 }
 
-async function hasSizeVariants(productId: string, db: DbClient): Promise<boolean> {
-  const count = await db.productSize.count({ where: { productId } });
+function normalizeColor(color?: string | null): string {
+  return color?.trim() || '';
+}
+
+async function hasVariants(productId: string, db: DbClient): Promise<boolean> {
+  const count = await db.productVariant.count({ where: { productId } });
+  return count > 0;
+}
+
+async function productHasColors(productId: string, db: DbClient): Promise<boolean> {
+  const count = await db.productColor.count({ where: { productId } });
   return count > 0;
 }
 
 async function recalculateProductStock(productId: string, db: DbClient): Promise<void> {
-  const sizes = await db.productSize.findMany({ where: { productId } });
-  if (sizes.length === 0) return;
-  const total = sizes.reduce((sum, s) => sum + s.stock, 0);
+  const variants = await db.productVariant.findMany({ where: { productId } });
+  if (variants.length === 0) return;
+  const total = variants.reduce((sum, v) => sum + v.stock, 0);
   await db.product.update({ where: { id: productId }, data: { stock: total } });
 }
 
 export async function getAvailableStock(
   productId: string,
   size?: string | null,
+  color?: string | null,
   db: DbClient = prisma
 ): Promise<number> {
   const sizeKey = normalizeSize(size);
+  const colorKey = normalizeColor(color);
 
-  if (await hasSizeVariants(productId, db)) {
+  if (await hasVariants(productId, db)) {
     if (!sizeKey) return 0;
-    const productSize = await db.productSize.findFirst({
-      where: { productId, size: sizeKey },
+    if ((await productHasColors(productId, db)) && !colorKey) return 0;
+
+    const variant = await db.productVariant.findFirst({
+      where: { productId, size: sizeKey, color: colorKey },
     });
-    return productSize?.stock ?? 0;
+    return variant?.stock ?? 0;
   }
 
   const product = await db.product.findUnique({ where: { id: productId } });
@@ -44,26 +57,31 @@ export async function decrementStock(
   db: DbClient,
   productId: string,
   size: string | null | undefined,
+  color: string | null | undefined,
   quantity: number
 ): Promise<void> {
   if (quantity < 1) throw new Error('Некорректное количество');
 
   const sizeKey = normalizeSize(size);
+  const colorKey = normalizeColor(color);
 
-  if (await hasSizeVariants(productId, db)) {
+  if (await hasVariants(productId, db)) {
     if (!sizeKey) throw new Error('Укажите размер товара');
+    if ((await productHasColors(productId, db)) && !colorKey) {
+      throw new Error('Укажите цвет товара');
+    }
 
-    const productSize = await db.productSize.findFirst({
-      where: { productId, size: sizeKey },
+    const variant = await db.productVariant.findFirst({
+      where: { productId, size: sizeKey, color: colorKey },
     });
 
-    if (!productSize || productSize.stock < quantity) {
+    if (!variant || variant.stock < quantity) {
       throw new Error('Недостаточно на складе');
     }
 
-    await db.productSize.update({
-      where: { id: productSize.id },
-      data: { stock: productSize.stock - quantity },
+    await db.productVariant.update({
+      where: { id: variant.id },
+      data: { stock: variant.stock - quantity },
     });
 
     await recalculateProductStock(productId, db);
@@ -85,23 +103,25 @@ export async function restoreStock(
   db: DbClient,
   productId: string,
   size: string | null | undefined,
+  color: string | null | undefined,
   quantity: number
 ): Promise<void> {
   if (quantity < 1) return;
 
   const sizeKey = normalizeSize(size);
+  const colorKey = normalizeColor(color);
 
-  if (await hasSizeVariants(productId, db)) {
+  if (await hasVariants(productId, db)) {
     if (!sizeKey) return;
 
-    const productSize = await db.productSize.findFirst({
-      where: { productId, size: sizeKey },
+    const variant = await db.productVariant.findFirst({
+      where: { productId, size: sizeKey, color: colorKey },
     });
 
-    if (productSize) {
-      await db.productSize.update({
-        where: { id: productSize.id },
-        data: { stock: productSize.stock + quantity },
+    if (variant) {
+      await db.productVariant.update({
+        where: { id: variant.id },
+        data: { stock: variant.stock + quantity },
       });
       await recalculateProductStock(productId, db);
     }

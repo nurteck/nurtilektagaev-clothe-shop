@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js';
+import multer from 'multer';
 import { upload } from '../middleware/upload.js';
 import { createSlug } from '../utils/slug.js';
 
@@ -17,6 +18,7 @@ async function uniqueCategorySlug(name: string, excludeId?: string): Promise<str
     slug = `${base}-${counter}`;
   }
 }
+import { replaceProductVariants } from '../utils/productVariants.js';
 import { decrementStock, getDefaultBrandId, restoreStock } from '../utils/stock.js';
 
 const ORDER_STATUSES = ['NEW', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const;
@@ -91,7 +93,7 @@ router.get('/products', async (req, res) => {
         category: true,
         brand: true,
         images: { orderBy: { order: 'asc' } },
-        sizes: true,
+        variants: true,
         colors: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -116,8 +118,8 @@ router.get('/products', async (req, res) => {
 
 router.post('/products', async (req, res) => {
   const {
-    name, description, price, oldPrice, stock, categoryId, audience,
-    isNew, isPopular, sizes, colors, images,
+    name, description, price, oldPrice, categoryId, audience,
+    isNew, isPopular, variants, colors, images,
   } = req.body;
 
   const validAudience = ['MEN', 'WOMEN', 'KIDS', 'UNISEX'].includes(audience)
@@ -128,52 +130,49 @@ router.post('/products', async (req, res) => {
   const brandId = await getDefaultBrandId();
   const hasDiscount = oldPrice && Number(oldPrice) > Number(price);
 
-  const product = await prisma.product.create({
-    data: {
-      name,
-      slug,
-      description,
-      price,
-      oldPrice: oldPrice || null,
-      stock: stock || 0,
-      categoryId,
-      brandId,
-      isNew: isNew ?? true,
-      isPopular: isPopular || false,
-      isSale: hasDiscount || false,
-      isRecommended: false,
-      audience: validAudience,
-      images: images?.length
-        ? { create: images.map((url: string, i: number) => ({ url, order: i })) }
-        : undefined,
-      sizes: sizes?.length
-        ? { create: sizes.map((s: { size: string; stock?: number }) => ({ size: s.size, stock: s.stock || 0 })) }
-        : undefined,
-      colors: colors?.length
-        ? { create: colors.map((c: { name: string; hex: string }) => ({ name: c.name, hex: c.hex })) }
-        : undefined,
-    },
-    include: { category: true, brand: true, images: true, sizes: true, colors: true },
+  const product = await prisma.$transaction(async (tx) => {
+    const created = await tx.product.create({
+      data: {
+        name,
+        slug,
+        description,
+        price,
+        oldPrice: oldPrice || null,
+        stock: 0,
+        categoryId,
+        brandId,
+        isNew: isNew ?? true,
+        isPopular: isPopular || false,
+        isSale: hasDiscount || false,
+        isRecommended: false,
+        audience: validAudience,
+        images: images?.length
+          ? { create: images.map((url: string, i: number) => ({ url, order: i })) }
+          : undefined,
+      },
+    });
+
+    const totalStock = await replaceProductVariants(tx, created.id, colors, variants);
+    await tx.product.update({ where: { id: created.id }, data: { stock: totalStock } });
+
+    return tx.product.findUnique({
+      where: { id: created.id },
+      include: { category: true, brand: true, images: true, variants: true, colors: true },
+    });
   });
 
-  res.status(201).json({ ...product, price: Number(product.price) });
+  res.status(201).json({ ...product!, price: Number(product!.price) });
 });
 
 router.put('/products/:id', async (req, res) => {
   const {
-    name, description, price, oldPrice, stock, categoryId, audience,
-    isNew, isPopular, sizes, colors, images,
+    name, description, price, oldPrice, categoryId, audience,
+    isNew, isPopular, variants, colors, images,
   } = req.body;
 
   const hasDiscount = oldPrice && Number(oldPrice) > Number(price);
 
   await prisma.$transaction(async (tx) => {
-    if (sizes?.length) {
-      await tx.productSize.deleteMany({ where: { productId: req.params.id } });
-    }
-    if (colors?.length) {
-      await tx.productColor.deleteMany({ where: { productId: req.params.id } });
-    }
     if (images?.length) {
       await tx.productImage.deleteMany({ where: { productId: req.params.id } });
     }
@@ -185,7 +184,6 @@ router.put('/products/:id', async (req, res) => {
         ...(description && { description }),
         ...(price !== undefined && { price }),
         ...(oldPrice !== undefined && { oldPrice }),
-        ...(stock !== undefined && { stock }),
         ...(categoryId && { categoryId }),
         ...(isNew !== undefined && { isNew }),
         ...(isPopular !== undefined && { isPopular }),
@@ -194,27 +192,70 @@ router.put('/products/:id', async (req, res) => {
         ...(images?.length && {
           images: { create: images.map((url: string, i: number) => ({ url, order: i })) },
         }),
-        ...(sizes?.length && {
-          sizes: { create: sizes.map((s: { size: string; stock?: number }) => ({ size: s.size, stock: s.stock || 0 })) },
-        }),
-        ...(colors?.length && {
-          colors: { create: colors.map((c: { name: string; hex: string }) => ({ name: c.name, hex: c.hex })) },
-        }),
       },
+    });
+
+    const totalStock = await replaceProductVariants(
+      tx,
+      String(req.params.id),
+      colors,
+      variants
+    );
+    await tx.product.update({
+      where: { id: String(req.params.id) },
+      data: { stock: totalStock },
     });
   });
 
   const product = await prisma.product.findUnique({
     where: { id: req.params.id },
-    include: { category: true, brand: true, images: true, sizes: true, colors: true },
+    include: { category: true, brand: true, images: true, variants: true, colors: true },
   });
 
   res.json({ ...product, price: Number(product!.price) });
 });
 
 router.delete('/products/:id', async (req, res) => {
-  await prisma.product.delete({ where: { id: req.params.id } });
-  res.json({ message: 'Товар удалён' });
+  const id = String(req.params.id);
+  try {
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (!product) {
+      return res.status(404).json({ message: 'Товар не найден' });
+    }
+
+    const inActiveOrders = await prisma.orderItem.count({
+      where: {
+        productId: id,
+        order: { status: { not: 'CANCELLED' } },
+      },
+    });
+    if (inActiveOrders > 0) {
+      return res.status(400).json({
+        message: 'Нельзя удалить: товар в активных заказах. Сначала завершите или отмените заказы.',
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.orderItem.deleteMany({ where: { productId: id } });
+      await tx.cartItem.deleteMany({ where: { productId: id } });
+      await tx.favorite.deleteMany({ where: { productId: id } });
+      await tx.review.deleteMany({ where: { productId: id } });
+      await tx.banner.updateMany({ where: { productId: id }, data: { productId: null } });
+      await tx.product.delete({ where: { id } });
+    });
+
+    res.json({ message: 'Товар удалён' });
+  } catch (err) {
+    console.error('Delete product error:', err);
+    const prismaCode = err && typeof err === 'object' && 'code' in err ? String((err as { code: string }).code) : '';
+    const message =
+      prismaCode === 'P2003'
+        ? 'Нельзя удалить: товар связан с заказами'
+        : err instanceof Error
+          ? err.message
+          : 'Не удалось удалить товар';
+    res.status(400).json({ message });
+  }
 });
 
 // Categories CRUD
@@ -436,11 +477,11 @@ router.put('/orders/:id/status', async (req, res) => {
 
       if (!wasCancelled && willCancel) {
         for (const item of existing.orderItems) {
-          await restoreStock(tx, item.productId, item.size, item.quantity);
+          await restoreStock(tx, item.productId, item.size, item.color, item.quantity);
         }
       } else if (wasCancelled && !willCancel) {
         for (const item of existing.orderItems) {
-          await decrementStock(tx, item.productId, item.size, item.quantity);
+          await decrementStock(tx, item.productId, item.size, item.color, item.quantity);
         }
       }
 
@@ -492,11 +533,40 @@ router.get('/users/:id/orders', async (req, res) => {
   res.json(orders.map((o) => ({ ...o, total: Number(o.total) })));
 });
 
-// Upload
-router.post('/upload', upload.single('image'), (req, res) => {
-  if (!req.file) return res.status(400).json({ message: 'Файл не загружен' });
-  const url = `/uploads/${req.file.filename}`;
-  res.json({ url });
+// Upload — сохраняем в БД (на Render диск /uploads не сохраняется)
+router.post('/upload', (req, res) => {
+  upload.single('image')(req, res, async (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        res.status(400).json({ message: 'Файл слишком большой (макс. 20 МБ)' });
+        return;
+      }
+      res.status(400).json({ message: 'Ошибка загрузки файла' });
+      return;
+    }
+    if (err) {
+      res.status(400).json({ message: err instanceof Error ? err.message : 'Ошибка загрузки' });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ message: 'Файл не загружен' });
+      return;
+    }
+
+    try {
+      const asset = await prisma.imageAsset.create({
+        data: {
+          mimeType: req.file.mimetype || 'image/jpeg',
+          data: Uint8Array.from(req.file.buffer),
+        },
+      });
+      res.json({ url: `/api/media/${asset.id}` });
+    } catch (e) {
+      console.error('Image save error:', e);
+      res.status(500).json({ message: 'Не удалось сохранить изображение' });
+    }
+  });
 });
 
 export default router;

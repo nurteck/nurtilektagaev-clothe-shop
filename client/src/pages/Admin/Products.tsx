@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { api, formatPrice } from '../../services/api';
+import { api, formatPrice, resolveMediaUrl } from '../../services/api';
 import type { Category, Pagination, Product, ProductAudience } from '../../types';
 import { AUDIENCE_LABELS, AUDIENCE_OPTIONS } from '../../types';
+import { getSizePreset, type SizePreset } from '../../config/sizes';
 import {
-  defaultSizeRows,
-  getSizePreset,
-  mergeSizeRows,
-  type SizePreset,
-} from '../../config/sizes';
+  buildPayloadFromColorGroups,
+  COLOR_PRESETS,
+  colorGroupsFromProduct,
+  defaultSizesForPreset,
+  newColorGroup,
+  noColorSizesFromProduct,
+  type ColorGroup,
+} from '../../config/variants';
 import styles from './Admin.module.css';
-
-interface SizeRow {
-  size: string;
-  stock: string;
-}
 
 interface ProductForm {
   name: string;
@@ -25,10 +24,11 @@ interface ProductForm {
   isPopular: boolean;
   isNew: boolean;
   images: string;
-  sizes: SizeRow[];
+  colorGroups: ColorGroup[];
+  noColorSizes: { size: string; stock: string }[];
 }
 
-const emptyForm: ProductForm = {
+const emptyForm = (preset: SizePreset = 'clothing'): ProductForm => ({
   name: '',
   description: '',
   price: '',
@@ -38,8 +38,9 @@ const emptyForm: ProductForm = {
   isPopular: false,
   isNew: true,
   images: '',
-  sizes: defaultSizeRows('clothing'),
-};
+  colorGroups: [],
+  noColorSizes: defaultSizesForPreset(preset),
+});
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -52,9 +53,11 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
-  const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [form, setForm] = useState<ProductForm>(emptyForm());
   const [error, setError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadingColorIdx, setUploadingColorIdx] = useState<number | null>(null);
   const [sizePreset, setSizePreset] = useState<SizePreset>('clothing');
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -99,15 +102,34 @@ export default function AdminProducts() {
     setCategoryFilter(value);
   };
 
-  const handleUpload = async (file: File) => {
+  const uploadFile = async (file: File): Promise<string> => {
+    const { url } = await api.upload(file);
+    return url;
+  };
+
+  const handleMainUpload = async (file: File) => {
     setUploading(true);
     try {
-      const { url } = await api.upload(file);
+      const url = await uploadFile(file);
       setForm((f) => ({ ...f, images: f.images ? `${f.images}\n${url}` : url }));
-    } catch {
-      alert('Ошибка загрузки фото');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ошибка загрузки фото');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleColorUpload = async (file: File, groupIndex: number) => {
+    setUploadingColorIdx(groupIndex);
+    try {
+      const url = await uploadFile(file);
+      const colorGroups = [...form.colorGroups];
+      colorGroups[groupIndex] = { ...colorGroups[groupIndex], imageUrl: url };
+      setForm({ ...form, colorGroups });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ошибка загрузки фото');
+    } finally {
+      setUploadingColorIdx(null);
     }
   };
 
@@ -117,7 +139,7 @@ export default function AdminProducts() {
       return;
     }
     setEditing(null);
-    setForm(emptyForm);
+    setForm(emptyForm());
     setSizePreset('clothing');
     setError('');
     setModal(true);
@@ -126,9 +148,7 @@ export default function AdminProducts() {
   const openEdit = (p: Product) => {
     const cat = categories.find((c) => c.id === p.category?.id) || p.category;
     const preset = getSizePreset(cat);
-    const existingSizes = p.sizes.length
-      ? p.sizes.map((s) => ({ size: s.size, stock: String(s.stock) }))
-      : [{ size: 'M', stock: String(p.stock) }];
+    const groups = colorGroupsFromProduct(p, preset);
 
     setEditing(p.id);
     setSizePreset(preset);
@@ -142,7 +162,8 @@ export default function AdminProducts() {
       isPopular: p.isPopular,
       isNew: p.isNew,
       images: p.images.map((i) => i.url).join('\n'),
-      sizes: mergeSizeRows(existingSizes, preset),
+      colorGroups: groups,
+      noColorSizes: groups.length ? defaultSizesForPreset(preset) : noColorSizesFromProduct(p, preset),
     });
     setError('');
     setModal(true);
@@ -155,22 +176,54 @@ export default function AdminProducts() {
     setForm((f) => ({
       ...f,
       categoryId,
-      sizes: editing ? mergeSizeRows(f.sizes, preset) : defaultSizeRows(preset),
+      noColorSizes: defaultSizesForPreset(preset),
+      colorGroups: f.colorGroups.map((g) => ({
+        ...g,
+        sizes: defaultSizesForPreset(preset).map((s) => {
+          const found = g.sizes.find((x) => x.size === s.size);
+          return { size: s.size, stock: found?.stock ?? '0' };
+        }),
+      })),
     }));
   };
 
-  const updateSize = (index: number, field: 'size' | 'stock', value: string) => {
-    const sizes = [...form.sizes];
-    sizes[index] = { ...sizes[index], [field]: value };
-    setForm({ ...form, sizes });
+  const addColorGroup = (preset?: { name: string; hex: string }) => {
+    const group = newColorGroup(sizePreset, preset);
+    setForm({ ...form, colorGroups: [...form.colorGroups, group] });
   };
 
-  const updateSizeStock = (index: number, value: string) => {
-    updateSize(index, 'stock', value);
+  const removeColorGroup = (index: number) => {
+    setForm({ ...form, colorGroups: form.colorGroups.filter((_, i) => i !== index) });
   };
 
-  const addSize = () => setForm({ ...form, sizes: [...form.sizes, { size: '', stock: '0' }] });
-  const removeSize = (index: number) => setForm({ ...form, sizes: form.sizes.filter((_, i) => i !== index) });
+  const updateColorGroup = (index: number, patch: Partial<ColorGroup>) => {
+    const colorGroups = [...form.colorGroups];
+    colorGroups[index] = { ...colorGroups[index], ...patch };
+    setForm({ ...form, colorGroups });
+  };
+
+  const updateColorGroupSize = (groupIndex: number, sizeIndex: number, stock: string) => {
+    const colorGroups = [...form.colorGroups];
+    const sizes = [...colorGroups[groupIndex].sizes];
+    sizes[sizeIndex] = { ...sizes[sizeIndex], stock };
+    colorGroups[groupIndex] = { ...colorGroups[groupIndex], sizes };
+    setForm({ ...form, colorGroups });
+  };
+
+  const updateNoColorSize = (index: number, field: 'size' | 'stock', value: string) => {
+    const noColorSizes = [...form.noColorSizes];
+    noColorSizes[index] = { ...noColorSizes[index], [field]: value };
+    setForm({ ...form, noColorSizes });
+  };
+
+  const addNoColorSize = () => {
+    setForm({ ...form, noColorSizes: [...form.noColorSizes, { size: '', stock: '0' }] });
+  };
+
+  const removeNoColorSize = (index: number) => {
+    if (form.noColorSizes.length <= 1) return;
+    setForm({ ...form, noColorSizes: form.noColorSizes.filter((_, i) => i !== index) });
+  };
 
   const handleSubmit = async () => {
     if (!form.name || !form.price || !form.categoryId || !form.audience) {
@@ -178,19 +231,22 @@ export default function AdminProducts() {
       return;
     }
 
-    const validSizes = form.sizes.filter((s) => s.size.trim());
-    if (validSizes.length === 0) {
-      setError('Укажите хотя бы один размер');
-      return;
+    if (form.colorGroups.length > 0) {
+      const unnamed = form.colorGroups.some((g) => !g.name.trim());
+      if (unnamed) {
+        setError('Укажите название для каждого цвета');
+        return;
+      }
     }
 
-    const sizesToSave = sizePreset === 'shoes'
-      ? validSizes.filter((s) => parseInt(s.stock || '0', 10) > 0)
-      : validSizes;
+    const { colors, variants } = buildPayloadFromColorGroups(form.colorGroups, form.noColorSizes);
 
-    const totalStock = sizesToSave.reduce((sum, s) => sum + parseInt(s.stock || '0', 10), 0);
-    if (totalStock <= 0) {
-      setError('Укажите количество хотя бы для одного размера');
+    if (variants.length === 0) {
+      setError(
+        form.colorGroups.length
+          ? 'Укажите количество хотя бы для одного размера в любом цвете'
+          : 'Укажите количество хотя бы для одного размера'
+      );
       return;
     }
 
@@ -199,17 +255,13 @@ export default function AdminProducts() {
       description: form.description || form.name,
       price: parseFloat(form.price),
       oldPrice: form.oldPrice ? parseFloat(form.oldPrice) : null,
-      stock: totalStock,
       categoryId: form.categoryId,
       audience: form.audience,
       isNew: form.isNew,
       isPopular: form.isPopular,
       images: form.images.split('\n').filter(Boolean),
-      sizes: sizesToSave.map((s) => ({
-        size: s.size.trim(),
-        stock: parseInt(s.stock || '0', 10),
-      })),
-      colors: [],
+      colors,
+      variants,
     };
 
     try {
@@ -223,18 +275,25 @@ export default function AdminProducts() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Удалить товар?')) return;
+    if (!confirm('Удалить товар? Это действие нельзя отменить.')) return;
+    setDeleteError('');
     try {
       await api.delete(`/admin/products/${id}`);
-      load();
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+      if (pagination) {
+        setPagination({ ...pagination, total: Math.max(0, pagination.total - 1) });
+      }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Не удалось удалить товар');
+      setDeleteError(err instanceof Error ? err.message : 'Не удалось удалить товар');
     }
   };
 
   const isShoes = sizePreset === 'shoes';
+  const useColors = form.colorGroups.length > 0;
   const totalPages = pagination?.pages || 1;
   const totalCount = pagination?.total ?? products.length;
+
+  const mainImagePreviews = form.images.split('\n').filter(Boolean);
 
   return (
     <div>
@@ -245,6 +304,8 @@ export default function AdminProducts() {
         </div>
         <button className={styles.adminPrimaryBtn} onClick={openCreate}>+ Добавить</button>
       </div>
+
+      {deleteError && <p className={styles.formError}>{deleteError}</p>}
 
       <div className={styles.productToolbar}>
         <div className={styles.productFilters}>
@@ -309,7 +370,9 @@ export default function AdminProducts() {
             {products.map((p) => (
               <article key={p.id} className={styles.productCard}>
                 {p.images[0] ? (
-                  <img src={p.images[0].url} alt="" className={styles.productCardImg} />
+                  <img src={resolveMediaUrl(p.images[0].url)} alt="" className={styles.productCardImg} />
+                ) : p.colors[0]?.imageUrl ? (
+                  <img src={resolveMediaUrl(p.colors[0].imageUrl)} alt="" className={styles.productCardImg} />
                 ) : (
                   <div className={styles.productCardImgPlaceholder} />
                 )}
@@ -317,6 +380,7 @@ export default function AdminProducts() {
                   <div className={styles.productCardName}>{p.name}</div>
                   <div className={styles.productCardMeta}>
                     {p.category?.name} · {AUDIENCE_LABELS[p.audience] || '—'} · {p.stock} шт.
+                    {p.colors.length > 0 ? ` · ${p.colors.length} цв.` : ''}
                     {p.isSale ? ' · Акция' : ''}
                   </div>
                   <div className={styles.productCardPrice}>{formatPrice(p.price)}</div>
@@ -381,7 +445,7 @@ export default function AdminProducts() {
 
       {modal && (
         <div className={styles.modal} onClick={() => setModal(false)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+          <div className={`${styles.modalContent} ${styles.modalContentWide}`} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <h2>{editing ? 'Редактировать товар' : 'Новый товар'}</h2>
               <button type="button" className={styles.closeBtn} onClick={() => setModal(false)}>×</button>
@@ -412,6 +476,11 @@ export default function AdminProducts() {
                   <option value="">Выберите</option>
                   {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
+                {selectedCategory && (
+                  <p className={styles.sizesHint}>
+                    {isShoes ? 'Обувь: фиксированные размеры EU' : 'Одежда: размеры XS–XXL'}
+                  </p>
+                )}
               </div>
               <div className={styles.formRow}>
                 <label>Для кого *</label>
@@ -436,71 +505,196 @@ export default function AdminProducts() {
                 <input type="checkbox" checked={form.isPopular} onChange={(e) => setForm({ ...form, isPopular: e.target.checked })} />
                 Популярный товар (показывать на главной)
               </label>
-              <div className={styles.formRow}>
-                <label>Фото товара</label>
-                <input type="file" accept="image/*" ref={fileRef} hidden onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
-                <button type="button" className={styles.adminSecondaryBtn} onClick={() => fileRef.current?.click()} disabled={uploading}>
-                  {uploading ? 'Загрузка...' : 'Загрузить фото'}
-                </button>
-                <textarea className={styles.adminInput} value={form.images} onChange={(e) => setForm({ ...form, images: e.target.value })} rows={2} style={{ marginTop: 8 }} />
-              </div>
-              <div className={styles.sizesSection}>
+
+              <div className={`${styles.sizesSection} ${styles.colorsBlock}`}>
                 <div className={styles.sizesHeader}>
-                  <label>{isShoes ? 'Размеры обуви (EU) и количество *' : 'Размеры и количество *'}</label>
-                  {!isShoes && (
-                    <button type="button" className={styles.addSizeBtn} onClick={addSize}>+ Размер</button>
-                  )}
+                  <label>Цвета товара</label>
+                  <button type="button" className={styles.addSizeBtn} onClick={() => addColorGroup()}>
+                    + Добавить цвет
+                  </button>
                 </div>
                 <p className={styles.sizesHint}>
-                  {isShoes
-                    ? 'Категория обуви — укажите количество для размеров 36–43'
-                    : 'Укажите размер (S, M, L…) и сколько штук в наличии'}
-                  {selectedCategory && isShoes ? ` · «${selectedCategory.name}»` : ''}
+                  {useColors
+                    ? 'Для каждого цвета загрузите фото — покупатель увидит миниатюры как в маркетплейсе. Укажите остатки по размерам.'
+                    : 'Если товар в разных цветах — добавьте цвет и загрузите фото для каждого. Иначе укажите только размеры ниже.'}
                 </p>
 
-                {isShoes ? (
-                  <div className={styles.sizeGrid}>
-                    {form.sizes.map((s, i) => (
-                      <div key={s.size} className={styles.sizeGridItem}>
-                        <span className={styles.sizeLabel}>{s.size}</span>
-                        <input
-                          className={styles.adminInput}
-                          type="number"
-                          value={s.stock}
-                          onChange={(e) => updateSizeStock(i, e.target.value)}
-                          min="0"
-                          placeholder="0"
-                        />
-                        <span className={styles.sizeUnit}>шт.</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className={styles.sizeList}>
-                    {form.sizes.map((s, i) => (
-                      <div key={i} className={styles.sizeRow}>
-                        <input
-                          className={styles.adminInput}
-                          value={s.size}
-                          onChange={(e) => updateSize(i, 'size', e.target.value)}
-                          placeholder="S, M, L..."
-                        />
-                        <input
-                          className={styles.adminInput}
-                          type="number"
-                          value={s.stock}
-                          onChange={(e) => updateSize(i, 'stock', e.target.value)}
-                          min="0"
-                        />
-                        <span className={styles.sizeUnit}>шт.</span>
-                        {form.sizes.length > 1 && (
-                          <button type="button" className={styles.removeSizeBtn} onClick={() => removeSize(i)}>×</button>
+                <div className={styles.colorPresetRow}>
+                  {COLOR_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      className={styles.adminSecondaryBtn}
+                      onClick={() => addColorGroup(preset)}
+                      disabled={form.colorGroups.some((g) => g.name === preset.name)}
+                    >
+                      <span className={styles.colorPresetDot} style={{ background: preset.hex }} />
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+
+                {form.colorGroups.map((group, gi) => (
+                  <div key={gi} className={styles.colorGroupCard}>
+                    <div className={styles.colorGroupHeader}>
+                      <span className={styles.colorGroupTitle}>Цвет {gi + 1}</span>
+                      <button type="button" className={styles.removeSizeBtn} onClick={() => removeColorGroup(gi)}>×</button>
+                    </div>
+
+                    <div className={styles.colorGroupTop}>
+                      <div className={styles.colorGroupPhoto}>
+                        {group.imageUrl ? (
+                          <img src={resolveMediaUrl(group.imageUrl)} alt="" />
+                        ) : (
+                          <div className={styles.colorGroupPhotoPlaceholder}>Фото</div>
                         )}
+                        <label className={styles.adminSecondaryBtn} style={{ cursor: 'pointer', textAlign: 'center' }}>
+                          {uploadingColorIdx === gi ? 'Загрузка...' : group.imageUrl ? 'Сменить фото' : 'Загрузить фото *'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            disabled={uploadingColorIdx === gi}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleColorUpload(file, gi);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
                       </div>
+
+                      <div className={styles.colorGroupFields}>
+                        <input
+                          className={styles.adminInput}
+                          value={group.name}
+                          onChange={(e) => updateColorGroup(gi, { name: e.target.value })}
+                          placeholder="Название (Белый, Чёрный...)"
+                        />
+                        <div className={styles.colorPickerRow}>
+                          <input
+                            type="color"
+                            value={group.hex}
+                            onChange={(e) => updateColorGroup(gi, { hex: e.target.value })}
+                          />
+                          <span>{group.hex}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={styles.colorGroupSizes}>
+                      <span className={styles.colorGroupSizesLabel}>
+                        {isShoes ? 'Количество по размерам (EU)' : 'Количество по размерам'}
+                      </span>
+                      {isShoes ? (
+                        <div className={styles.sizeGrid}>
+                          {group.sizes.map((s, si) => (
+                            <div key={s.size} className={styles.sizeGridItem}>
+                              <span className={styles.sizeLabel}>{s.size}</span>
+                              <input
+                                className={styles.adminInput}
+                                type="number"
+                                min="0"
+                                value={s.stock}
+                                onChange={(e) => updateColorGroupSize(gi, si, e.target.value)}
+                                placeholder="0"
+                              />
+                              <span className={styles.sizeUnit}>шт.</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className={styles.sizeGrid}>
+                          {group.sizes.map((s, si) => (
+                            <div key={s.size} className={styles.sizeGridItem}>
+                              <span className={styles.sizeLabel}>{s.size}</span>
+                              <input
+                                className={styles.adminInput}
+                                type="number"
+                                min="0"
+                                value={s.stock}
+                                onChange={(e) => updateColorGroupSize(gi, si, e.target.value)}
+                                placeholder="0"
+                              />
+                              <span className={styles.sizeUnit}>шт.</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {!useColors && (
+                  <div className={styles.sizesSection}>
+                    <div className={styles.sizesHeader}>
+                      <label>{isShoes ? 'Размеры обуви (EU) *' : 'Размеры и количество *'}</label>
+                      {!isShoes && (
+                        <button type="button" className={styles.addSizeBtn} onClick={addNoColorSize}>+ Размер</button>
+                      )}
+                    </div>
+                    {isShoes ? (
+                      <div className={styles.sizeGrid}>
+                        {form.noColorSizes.map((s, i) => (
+                          <div key={s.size} className={styles.sizeGridItem}>
+                            <span className={styles.sizeLabel}>{s.size}</span>
+                            <input
+                              className={styles.adminInput}
+                              type="number"
+                              value={s.stock}
+                              onChange={(e) => updateNoColorSize(i, 'stock', e.target.value)}
+                              min="0"
+                              placeholder="0"
+                            />
+                            <span className={styles.sizeUnit}>шт.</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={styles.sizeList}>
+                        {form.noColorSizes.map((s, i) => (
+                          <div key={i} className={styles.sizeRow}>
+                            <input
+                              className={styles.adminInput}
+                              value={s.size}
+                              onChange={(e) => updateNoColorSize(i, 'size', e.target.value)}
+                              placeholder="S, M, L..."
+                            />
+                            <input
+                              className={styles.adminInput}
+                              type="number"
+                              value={s.stock}
+                              onChange={(e) => updateNoColorSize(i, 'stock', e.target.value)}
+                              min="0"
+                            />
+                            <span className={styles.sizeUnit}>шт.</span>
+                            {form.noColorSizes.length > 1 && (
+                              <button type="button" className={styles.removeSizeBtn} onClick={() => removeNoColorSize(i)}>×</button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.sizesSection}>
+                <label>Дополнительные фото (необязательно)</label>
+                <p className={styles.sizesHint}>Общая галерея товара. Основное фото для цвета — в карточке цвета выше.</p>
+                <input type="file" accept="image/*" ref={fileRef} hidden onChange={(e) => e.target.files?.[0] && handleMainUpload(e.target.files[0])} />
+                <button type="button" className={styles.adminSecondaryBtn} onClick={() => fileRef.current?.click()} disabled={uploading}>
+                  {uploading ? 'Загрузка...' : '+ Загрузить фото'}
+                </button>
+                {mainImagePreviews.length > 0 && (
+                  <div className={styles.imagePreviewRow}>
+                    {mainImagePreviews.map((url, i) => (
+                      <img key={i} src={resolveMediaUrl(url)} alt="" className={styles.previewThumb} />
                     ))}
                   </div>
                 )}
               </div>
+
               {error && <p className={styles.formError}>{error}</p>}
               <div className={styles.formActions}>
                 <button type="button" className={styles.adminPrimaryBtn} onClick={handleSubmit}>{editing ? 'Сохранить' : 'Опубликовать'}</button>

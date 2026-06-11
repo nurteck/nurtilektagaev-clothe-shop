@@ -13,7 +13,7 @@ async function main() {
   await prisma.cartItem.deleteMany();
   await prisma.favorite.deleteMany();
   await prisma.productColor.deleteMany();
-  await prisma.productSize.deleteMany();
+  await prisma.productVariant.deleteMany();
   await prisma.productImage.deleteMany();
   await prisma.product.deleteMany();
   await prisma.banner.deleteMany();

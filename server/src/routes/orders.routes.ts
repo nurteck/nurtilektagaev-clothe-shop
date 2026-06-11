@@ -157,23 +157,31 @@ async function createOrderWithStock(
 
       const size = item.size?.trim() || undefined;
 
+      const color = item.color?.trim() || undefined;
+
       const product = await tx.product.findUnique({
 
         where: { id: item.productId },
 
-        include: { sizes: true },
+        include: { variants: true, colors: true },
 
       });
 
       if (!product) throw new Error('Товар не найден');
 
-      if (product.sizes.length > 0 && !size) {
+      if (product.variants.length > 0 && !size) {
 
         throw new Error(`«${product.name}»: выберите размер`);
 
       }
 
-      const available = await getAvailableStock(item.productId, size, tx);
+      if (product.colors.length > 0 && !color) {
+
+        throw new Error(`«${product.name}»: выберите цвет`);
+
+      }
+
+      const available = await getAvailableStock(item.productId, size, color, tx);
 
       if (item.quantity > available) {
 
@@ -197,7 +205,7 @@ async function createOrderWithStock(
 
         size,
 
-        color: item.color,
+        color,
 
       });
 
@@ -231,7 +239,7 @@ async function createOrderWithStock(
 
     for (const item of orderItemsData) {
 
-      await decrementStock(tx, item.productId, item.size ?? undefined, item.quantity);
+      await decrementStock(tx, item.productId, item.size ?? undefined, item.color ?? undefined, item.quantity);
 
     }
 

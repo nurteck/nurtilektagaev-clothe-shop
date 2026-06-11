@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, formatPrice } from '../../services/api';
+import { api, formatPrice, resolveMediaUrl } from '../../services/api';
+import { getProductDisplayImage } from '../../config/variants';
 import type { Order } from '../../types';
 import { ORDER_STATUS_LABELS } from '../../types';
 import styles from './Admin.module.css';
@@ -168,8 +169,12 @@ export default function AdminOrders() {
                 <ul className={orderStyles.items}>
                   {o.orderItems.map((item) => (
                     <li key={item.id} className={orderStyles.item}>
-                      {item.product.images?.[0] && (
-                        <img src={item.product.images[0].url} alt="" className={orderStyles.itemImg} />
+                      {getProductDisplayImage(item.product, item.color || '') && (
+                        <img
+                          src={resolveMediaUrl(getProductDisplayImage(item.product, item.color || ''))}
+                          alt=""
+                          className={orderStyles.itemImg}
+                        />
                       )}
                       <div className={orderStyles.itemInfo}>
                         <span className={orderStyles.itemName}>{item.product.name}</span>

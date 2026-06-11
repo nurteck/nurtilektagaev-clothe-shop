@@ -348,13 +348,16 @@ export function useShop() {
 
 
 
-export async function checkStock(productId: string, size?: string): Promise<number> {
-
-  const params = size ? `?size=${encodeURIComponent(size)}` : '';
-
-  const data = await api.get<{ available: number }>(`/products/stock/${productId}${params}`);
-
+export async function checkStock(
+  productId: string,
+  size?: string,
+  color?: string
+): Promise<number> {
+  const params = new URLSearchParams();
+  if (size) params.set('size', size);
+  if (color) params.set('color', color);
+  const query = params.toString() ? `?${params}` : '';
+  const data = await api.get<{ available: number }>(`/products/stock/${productId}${query}`);
   return data.available;
-
 }
 

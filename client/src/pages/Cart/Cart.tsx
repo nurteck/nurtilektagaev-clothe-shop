@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, formatPrice } from '../../services/api';
+import { api, formatPrice, resolveMediaUrl } from '../../services/api';
+import { getProductDisplayImage } from '../../config/variants';
 import { useShop, checkStock, type LocalCartItem } from '../../context/ShopContext';
 import Button from '../../components/Button/Button';
 import type { Product } from '../../types';
@@ -59,7 +60,7 @@ export default function Cart() {
 
     setError('');
     try {
-      const available = await checkStock(line.productId, line.size);
+      const available = await checkStock(line.productId, line.size, line.color);
       if (quantity > available) {
         setError(`«${line.product.name}»: доступно только ${available} шт.`);
         return;
@@ -91,8 +92,11 @@ export default function Cart() {
                 className={styles.item}
               >
                 <Link to={`/product/${item.product.slug}`} className={styles.itemImage}>
-                  {item.product.images[0] && (
-                    <img src={item.product.images[0].url} alt={item.product.name} />
+                  {getProductDisplayImage(item.product, item.color || '') && (
+                    <img
+                      src={resolveMediaUrl(getProductDisplayImage(item.product, item.color || ''))}
+                      alt={item.product.name}
+                    />
                   )}
                 </Link>
                 <div className={styles.itemInfo}>

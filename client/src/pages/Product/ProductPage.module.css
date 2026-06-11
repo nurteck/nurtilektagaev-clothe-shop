@@ -206,25 +206,101 @@
   text-decoration: line-through;
 }
 
-.colorBtn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+.colorSection {
+  margin-bottom: 20px;
+}
+
+.colorSectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.colorSelectedName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--gray-800);
+  text-transform: capitalize;
+}
+
+.colorCount {
+  font-size: 0.8rem;
+  color: var(--gray-400);
+}
+
+.colorStripWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.colorStrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  flex: 1;
+  padding: 2px 0 6px;
+  scrollbar-width: none;
+}
+
+.colorStrip::-webkit-scrollbar {
+  display: none;
+}
+
+.colorThumb {
+  flex: 0 0 56px;
+  width: 56px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
   border: 2px solid var(--gray-200);
-  padding: 3px;
+  background: var(--gray-100);
   transition: var(--transition);
 }
 
-.colorBtn span {
+.colorThumb:hover {
+  border-color: var(--primary-light);
+}
+
+.colorThumbActive {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.colorThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.colorThumbSwatch {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 50%;
-  border: 1px solid var(--gray-200);
 }
 
-.colorBtn.optionActive {
+.colorScrollBtn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+  color: var(--gray-600);
+  font-size: 1.25rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.colorScrollBtn:hover {
   border-color: var(--primary);
+  color: var(--primary);
 }
 
 .stock {

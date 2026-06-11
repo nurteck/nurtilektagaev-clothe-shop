@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 
-import { api } from '../../services/api';
+import { api, resolveMediaUrl } from '../../services/api';
 
 import type { Category } from '../../types';
 
@@ -76,9 +76,9 @@ export default function AdminCategories() {
 
       setImage(url);
 
-    } catch {
+    } catch (err) {
 
-      alert('Ошибка загрузки фото');
+      alert(err instanceof Error ? err.message : 'Ошибка загрузки фото');
 
     } finally {
 
@@ -178,7 +178,7 @@ export default function AdminCategories() {
 
               {c.image ? (
 
-                <img src={c.image} alt={c.name} className={styles.categoryAdminImg} />
+                <img src={resolveMediaUrl(c.image)} alt={c.name} className={styles.categoryAdminImg} />
 
               ) : (
 
@@ -240,7 +240,7 @@ export default function AdminCategories() {
 
                 <label>Фото категории</label>
 
-                {image && <img src={image} alt="" className={styles.previewImg} />}
+                {image && <img src={resolveMediaUrl(image)} alt="" className={styles.previewImg} />}
 
                 <input
 

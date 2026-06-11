@@ -89,7 +89,7 @@ model Product {
   category      Category       @relation(fields: [categoryId], references: [id])
   brand         Brand          @relation(fields: [brandId], references: [id])
   images        ProductImage[]
-  sizes         ProductSize[]
+  variants      ProductVariant[]
   colors        ProductColor[]
   favorites     Favorite[]
   cartItems     CartItem[]
@@ -98,6 +98,15 @@ model Product {
   banners       Banner[]
 
   @@map("products")
+}
+
+model ImageAsset {
+  id        String   @id @default(cuid())
+  mimeType  String
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  @@map("image_assets")
 }
 
 model ProductImage {
@@ -111,20 +120,23 @@ model ProductImage {
   @@map("product_images")
 }
 
-model ProductSize {
+model ProductVariant {
   id        String  @id @default(cuid())
   size      String
+  color     String  @default("")
   stock     Int     @default(0)
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@map("product_sizes")
+  @@unique([productId, size, color])
+  @@map("product_variants")
 }
 
 model ProductColor {
   id        String  @id @default(cuid())
   name      String
   hex       String
+  imageUrl  String?
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 

@@ -1,4 +1,5 @@
 import { getWhatsAppUrl } from '../config/contact';
+import { compressImageFile } from '../utils/imageCompress';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -34,8 +35,15 @@ export const api = {
 
   upload: async (file: File): Promise<{ url: string }> => {
     const token = getToken();
+    let compressed: Blob;
+    try {
+      compressed = await compressImageFile(file);
+    } catch (e) {
+      throw new Error(e instanceof Error ? e.message : 'Не удалось обработать фото');
+    }
+
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('image', compressed, 'photo.jpg');
 
     const res = await fetch(`${API_URL}/admin/upload`, {
       method: 'POST',
@@ -43,10 +51,21 @@ export const api = {
       body: formData,
     });
 
-    if (!res.ok) throw new Error('Ошибка загрузки');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Ошибка загрузки' }));
+      throw new Error(error.message || 'Ошибка загрузки');
+    }
     return res.json();
   },
 };
+
+/** URL для img src: /api/media, /uploads, data: и внешние ссылки */
+export function resolveMediaUrl(url?: string | null): string {
+  if (!url) return '';
+  if (url.startsWith('http') || url.startsWith('data:')) return url;
+  if (url.startsWith('/api/')) return url;
+  return url.startsWith('/') ? url : `/${url}`;
+}
 
 export function formatPrice(price: number): string {
   return `${new Intl.NumberFormat('ru-KG', { maximumFractionDigits: 0 }).format(price)} сом`;

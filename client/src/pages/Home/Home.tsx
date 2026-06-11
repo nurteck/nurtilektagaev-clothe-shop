@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
-import { api, formatPrice } from '../../services/api';
+import { api, formatPrice, resolveMediaUrl } from '../../services/api';
+import { getProductDisplayImage } from '../../config/variants';
 
 import { useShop } from '../../context/ShopContext';
 
@@ -86,7 +87,7 @@ export default function Home() {
 
         link: `/product/${p.slug}`,
 
-        image: p.images[0]?.url || null,
+        image: getProductDisplayImage(p) || null,
 
       }));
 
@@ -124,7 +125,7 @@ export default function Home() {
 
           {currentPromo.image ? (
 
-            <img src={currentPromo.image} alt={currentPromo.title} className={styles.heroImg} loading="eager" />
+            <img src={resolveMediaUrl(currentPromo.image)} alt={currentPromo.title} className={styles.heroImg} loading="eager" />
 
           ) : (
 

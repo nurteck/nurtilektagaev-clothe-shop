@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { formatPrice } from '../../services/api';
+import { formatPrice, resolveMediaUrl } from '../../services/api';
+import { getProductDisplayImage } from '../../config/variants';
 import type { Product } from '../../types';
 import styles from './ProductCard.module.css';
 
@@ -10,7 +11,7 @@ interface Props {
 }
 
 export default function ProductCard({ product, onFavorite, isFavorite }: Props) {
-  const image = product.images[0]?.url;
+  const image = getProductDisplayImage(product);
   const discount = product.oldPrice
     ? Math.round((1 - product.price / product.oldPrice) * 100)
     : 0;
@@ -19,7 +20,7 @@ export default function ProductCard({ product, onFavorite, isFavorite }: Props) 
     <article className={styles.card}>
       <Link to={`/product/${product.slug}`} className={styles.imageWrap}>
         {image ? (
-          <img src={image} alt={product.name} className={styles.image} loading="lazy" />
+          <img src={resolveMediaUrl(image)} alt={product.name} className={styles.image} loading="lazy" />
         ) : (
           <div className={styles.placeholder} />
         )}
@@ -55,6 +56,18 @@ export default function ProductCard({ product, onFavorite, isFavorite }: Props) 
             <span className={styles.oldPrice}>{formatPrice(product.oldPrice)}</span>
           )}
         </div>
+        {product.colors.length > 0 && (
+          <div className={styles.colorDots} aria-label="Доступные цвета">
+            {product.colors.slice(0, 4).map((c) => (
+              <span
+                key={c.id}
+                className={styles.colorDot}
+                style={{ background: c.hex }}
+                title={c.name}
+              />
+            ))}
+          </div>
+        )}
         {product.avgRating !== undefined && product.avgRating > 0 && (
           <div className={styles.rating}>
             <span className={styles.stars}>★ {product.avgRating}</span>
