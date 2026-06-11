@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { ensureHomeNavCards } from '../src/utils/homeNav.js';
 
 const prisma = new PrismaClient();
 
@@ -49,6 +50,8 @@ async function main() {
   await prisma.brand.create({
     data: { name: 'Oshop', slug: 'oshop' },
   });
+
+  await ensureHomeNavCards();
 
   console.log('Seed completed!');
   console.log('Продавец: nurtilek@oshop.com / nurti123 → вход в футере или /admin/login');
