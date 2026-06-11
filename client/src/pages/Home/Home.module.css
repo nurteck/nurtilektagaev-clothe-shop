@@ -96,7 +96,19 @@
   font-weight: 700;
   text-transform: uppercase;
   width: fit-content;
+  margin-bottom: 8px;
+}
+
+.heroDiscount {
+  display: inline-block;
+  margin-left: 8px;
   margin-bottom: 12px;
+  padding: 4px 10px;
+  background: #FEE2E2;
+  color: #DC2626;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
 }
 
 .heroContent h1 {

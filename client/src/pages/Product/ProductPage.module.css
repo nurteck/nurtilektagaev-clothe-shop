@@ -363,8 +363,9 @@
   color: var(--white);
 }
 
-.whatsappBtn:disabled {
+.whatsappBtnDisabled {
   opacity: 0.5;
+  pointer-events: none;
   cursor: not-allowed;
 }
 

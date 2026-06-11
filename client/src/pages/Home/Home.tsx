@@ -17,7 +17,11 @@ import type { Banner, Category, Product } from '../../types';
 
 import styles from './Home.module.css';
 
-
+function parseDiscountFromSubtitle(subtitle?: string): number {
+  if (!subtitle) return 0;
+  const match = subtitle.match(/−(\d+)%/);
+  return match ? parseInt(match[1], 10) : 0;
+}
 
 export default function Home() {
 
@@ -77,6 +81,8 @@ export default function Home() {
 
         image: b.image,
 
+        discount: parseDiscountFromSubtitle(b.subtitle ?? undefined),
+
       }))
 
     : saleProducts.slice(0, 3).map((p) => ({
@@ -88,6 +94,8 @@ export default function Home() {
         link: `/product/${p.slug}`,
 
         image: getProductDisplayImage(p) || null,
+
+        discount: p.oldPrice ? Math.round((1 - p.price / p.oldPrice) * 100) : 0,
 
       }));
 
@@ -140,6 +148,10 @@ export default function Home() {
           <div className={styles.heroContent}>
 
             <span className={styles.heroTag}>Акция</span>
+
+            {'discount' in currentPromo && currentPromo.discount > 0 && (
+              <span className={styles.heroDiscount}>−{currentPromo.discount}%</span>
+            )}
 
             <h2>{currentPromo.title}</h2>
 

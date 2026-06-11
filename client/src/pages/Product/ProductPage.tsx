@@ -116,30 +116,6 @@ export default function ProductPage() {
     toggleFavorite(product.id);
   };
 
-  const handleWhatsAppOrder = () => {
-    if (!product) return;
-
-    if (product.variants.length > 0 && !selectedSize) {
-      setMessage('Выберите размер');
-      return;
-    }
-    if (product.colors.length > 0 && !selectedColor) {
-      setMessage('Выберите цвет');
-      return;
-    }
-
-    setMessage('');
-    const url = getWhatsAppOrderLink({
-      name: product.name,
-      slug: product.slug,
-      color: selectedColor || undefined,
-      size: selectedSize || undefined,
-      quantity,
-      price: product.price * quantity,
-    });
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
   if (loading) return <div className={styles.loading}>Загрузка...</div>;
   if (fetchError) return <div className={styles.loading}>{fetchError}</div>;
   if (!product) return <div className={styles.loading}>Товар не найден</div>;
@@ -157,6 +133,29 @@ export default function ProductPage() {
   const discount = product.oldPrice
     ? Math.round((1 - product.price / product.oldPrice) * 100)
     : 0;
+
+  const whatsappUrl = getWhatsAppOrderLink({
+    name: product.name,
+    slug: product.slug,
+    color: selectedColor || undefined,
+    size: selectedSize || undefined,
+    quantity,
+    price: product.price * quantity,
+  });
+
+  const handleWhatsAppClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (product.variants.length > 0 && !selectedSize) {
+      e.preventDefault();
+      setMessage('Выберите размер');
+      return;
+    }
+    if (product.colors.length > 0 && !selectedColor) {
+      e.preventDefault();
+      setMessage('Выберите цвет');
+      return;
+    }
+    setMessage('');
+  };
 
   return (
     <div className={`container ${styles.page}`}>
@@ -313,14 +312,16 @@ export default function ProductPage() {
             <Button variant="outline" onClick={handleFavorite} size="lg">
               {product && isFavorite(product.id) ? '♥ В избранном' : '♡ В избранное'}
             </Button>
-            <button
-              type="button"
-              className={styles.whatsappBtn}
-              onClick={handleWhatsAppOrder}
-              disabled={!hasAnyStock || maxStock === 0}
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${styles.whatsappBtn} ${!hasAnyStock || maxStock === 0 ? styles.whatsappBtnDisabled : ''}`}
+              onClick={handleWhatsAppClick}
+              aria-disabled={!hasAnyStock || maxStock === 0}
             >
               Заказать через WhatsApp
-            </button>
+            </a>
           </div>
 
           {message && <p className={styles.message}>{message}</p>}

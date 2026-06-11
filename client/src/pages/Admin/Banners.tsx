@@ -1,8 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, formatPrice, resolveMediaUrl } from '../../services/api';
 import { getProductDisplayImage } from '../../config/variants';
 import type { Banner, Category, Product } from '../../types';
 import styles from './Admin.module.css';
+
+function calcDiscount(oldPrice: number, salePrice: number): number {
+  if (!oldPrice || oldPrice <= salePrice) return 0;
+  return Math.round((1 - salePrice / oldPrice) * 100);
+}
+
+function parseDiscountFromSubtitle(subtitle?: string | null): number {
+  if (!subtitle) return 0;
+  const match = subtitle.match(/−(\d+)%/);
+  return match ? parseInt(match[1], 10) : 0;
+}
 
 export default function AdminBanners() {
   const [items, setItems] = useState<Banner[]>([]);
@@ -13,6 +24,8 @@ export default function AdminBanners() {
   const [categoryId, setCategoryId] = useState('');
   const [productId, setProductId] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [oldPrice, setOldPrice] = useState('');
+  const [salePrice, setSalePrice] = useState('');
   const [form, setForm] = useState({ isActive: true, order: '0' });
   const [loadingProducts, setLoadingProducts] = useState(false);
 
@@ -38,9 +51,19 @@ export default function AdminBanners() {
       .finally(() => setLoadingProducts(false));
   }, [categoryId]);
 
+  const discount = useMemo(() => {
+    const old = parseFloat(oldPrice);
+    const sale = parseFloat(salePrice);
+    if (!old || !sale) return 0;
+    return calcDiscount(old, sale);
+  }, [oldPrice, salePrice]);
+
   const applyProduct = (product: Product) => {
     setSelectedProduct(product);
     setProductId(product.id);
+    const baseOld = product.oldPrice ?? product.price;
+    setOldPrice(String(baseOld));
+    setSalePrice(String(product.price));
   };
 
   const openCreate = () => {
@@ -48,6 +71,8 @@ export default function AdminBanners() {
     setCategoryId('');
     setProductId('');
     setSelectedProduct(null);
+    setOldPrice('');
+    setSalePrice('');
     setProducts([]);
     setForm({ isActive: true, order: String(items.length) });
     setModal(true);
@@ -58,6 +83,8 @@ export default function AdminBanners() {
     setForm({ isActive: b.isActive, order: String(b.order) });
     setProductId('');
     setSelectedProduct(null);
+    setOldPrice('');
+    setSalePrice('');
     setCategoryId('');
     setProducts([]);
     setModal(true);
@@ -71,8 +98,7 @@ export default function AdminBanners() {
           setCategoryId(catId);
           const catProducts = await api.get<{ products: Product[] }>(`/admin/products?limit=100&categoryId=${catId}`);
           setProducts(catProducts.products);
-          setProductId(product.id);
-          setSelectedProduct(product);
+          applyProduct(product);
         }
       } catch {
         /* ignore */
@@ -84,6 +110,8 @@ export default function AdminBanners() {
     setCategoryId(id);
     setProductId('');
     setSelectedProduct(null);
+    setOldPrice('');
+    setSalePrice('');
   };
 
   const handleProductChange = (id: string) => {
@@ -92,6 +120,8 @@ export default function AdminBanners() {
     else {
       setProductId('');
       setSelectedProduct(null);
+      setOldPrice('');
+      setSalePrice('');
     }
   };
 
@@ -101,8 +131,21 @@ export default function AdminBanners() {
       return;
     }
 
+    const old = parseFloat(oldPrice);
+    const sale = parseFloat(salePrice);
+    if (!old || !sale) {
+      alert('Укажите старую и новую цену');
+      return;
+    }
+    if (sale >= old) {
+      alert('Новая цена должна быть ниже старой');
+      return;
+    }
+
     const data = {
       productId,
+      oldPrice: old,
+      salePrice: sale,
       isActive: form.isActive,
       order: parseInt(form.order, 10) || 0,
     };
@@ -129,18 +172,19 @@ export default function AdminBanners() {
 
   const previewImage = selectedProduct ? getProductDisplayImage(selectedProduct) : undefined;
   const previewTitle = selectedProduct?.name || '';
-  const previewSubtitle = selectedProduct
-    ? selectedProduct.oldPrice
-      ? `${formatPrice(selectedProduct.price)} вместо ${formatPrice(selectedProduct.oldPrice)}`
-      : formatPrice(selectedProduct.price)
-    : '';
+  const previewSubtitle =
+    selectedProduct && oldPrice && salePrice && discount > 0
+      ? `${formatPrice(parseFloat(salePrice))} вместо ${formatPrice(parseFloat(oldPrice))} · −${discount}%`
+      : selectedProduct
+        ? formatPrice(parseFloat(salePrice) || selectedProduct.price)
+        : '';
 
   return (
     <div>
       <div className={styles.toolbar}>
         <div>
           <h1 className={styles.pageTitle}>Акции и баннеры</h1>
-          <p className={styles.pageDesc}>Выберите товар из каталога — он появится как баннер на главной</p>
+          <p className={styles.pageDesc}>Выберите товар, укажите цену акции — баннер и скидка появятся на главной</p>
         </div>
         <button className={styles.adminPrimaryBtn} onClick={openCreate}>+ Добавить баннер</button>
       </div>
@@ -151,26 +195,36 @@ export default function AdminBanners() {
             <tr><th>Товар</th><th>Активен</th><th>Порядок</th><th>Действия</th></tr>
           </thead>
           <tbody>
-            {items.map((b) => (
-              <tr key={b.id}>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {b.image && (
-                      <img src={resolveMediaUrl(b.image)} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
-                    )}
-                    <span>{b.product?.name || b.title}</span>
-                  </div>
-                </td>
-                <td>{b.isActive ? 'Да' : 'Нет'}</td>
-                <td>{b.order}</td>
-                <td>
-                  <div className={styles.actions}>
-                    <button className={`${styles.actionBtn} ${styles.editBtn}`} onClick={() => openEdit(b)}>Изменить</button>
-                    <button className={`${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => handleDelete(b.id)}>Удалить</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {items.map((b) => {
+              const itemDiscount = parseDiscountFromSubtitle(b.subtitle);
+              return (
+                <tr key={b.id}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {b.image && (
+                        <img src={resolveMediaUrl(b.image)} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
+                      )}
+                      <div>
+                        <span>{b.product?.name || b.title}</span>
+                        {itemDiscount > 0 && (
+                          <span style={{ display: 'block', fontSize: '0.75rem', color: '#DC2626', fontWeight: 700 }}>
+                            −{itemDiscount}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td>{b.isActive ? 'Да' : 'Нет'}</td>
+                  <td>{b.order}</td>
+                  <td>
+                    <div className={styles.actions}>
+                      <button className={`${styles.actionBtn} ${styles.editBtn}`} onClick={() => openEdit(b)}>Изменить</button>
+                      <button className={`${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => handleDelete(b.id)}>Удалить</button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -218,46 +272,91 @@ export default function AdminBanners() {
               </div>
 
               {selectedProduct && (
-                <div className={styles.formRow}>
-                  <label>Превью баннера</label>
-                  <div style={{
-                    display: 'flex',
-                    gap: 14,
-                    padding: 14,
-                    background: '#F5F3FF',
-                    borderRadius: 12,
-                    border: '1px solid #DDD6FE',
-                  }}>
-                    {previewImage ? (
-                      <img
-                        src={resolveMediaUrl(previewImage)}
-                        alt={previewTitle}
-                        style={{ width: 80, height: 100, borderRadius: 8, objectFit: 'cover' }}
+                <>
+                  <div className={styles.formRowGrid}>
+                    <div className={styles.formRow}>
+                      <label>Старая цена (сом)</label>
+                      <input
+                        className={styles.adminInput}
+                        type="number"
+                        min="1"
+                        value={oldPrice}
+                        onChange={(e) => setOldPrice(e.target.value)}
                       />
-                    ) : (
-                      <div style={{
-                        width: 80,
-                        height: 100,
-                        borderRadius: 8,
-                        background: '#E5E7EB',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '0.7rem',
-                        color: '#9CA3AF',
-                      }}>
-                        Нет фото
-                      </div>
-                    )}
-                    <div>
-                      <strong style={{ display: 'block', marginBottom: 4 }}>{previewTitle}</strong>
-                      <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>{previewSubtitle}</span>
-                      <span style={{ display: 'block', fontSize: '0.75rem', color: '#7C3AED', marginTop: 6 }}>
-                        Ссылка: /product/{selectedProduct.slug}
-                      </span>
+                    </div>
+                    <div className={styles.formRow}>
+                      <label>Новая цена акции (сом)</label>
+                      <input
+                        className={styles.adminInput}
+                        type="number"
+                        min="1"
+                        value={salePrice}
+                        onChange={(e) => setSalePrice(e.target.value)}
+                      />
                     </div>
                   </div>
-                </div>
+
+                  {discount > 0 && (
+                    <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: '#DC2626' }}>
+                      Скидка: −{discount}%
+                    </p>
+                  )}
+
+                  <div className={styles.formRow}>
+                    <label>Превью баннера</label>
+                    <div style={{
+                      display: 'flex',
+                      gap: 14,
+                      padding: 14,
+                      background: '#F5F3FF',
+                      borderRadius: 12,
+                      border: '1px solid #DDD6FE',
+                    }}>
+                      {previewImage ? (
+                        <img
+                          src={resolveMediaUrl(previewImage)}
+                          alt={previewTitle}
+                          style={{ width: 80, height: 100, borderRadius: 8, objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: 80,
+                          height: 100,
+                          borderRadius: 8,
+                          background: '#E5E7EB',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.7rem',
+                          color: '#9CA3AF',
+                        }}>
+                          Нет фото
+                        </div>
+                      )}
+                      <div>
+                        <strong style={{ display: 'block', marginBottom: 4 }}>{previewTitle}</strong>
+                        <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>{previewSubtitle}</span>
+                        {discount > 0 && (
+                          <span style={{
+                            display: 'inline-block',
+                            marginTop: 6,
+                            padding: '2px 8px',
+                            borderRadius: 999,
+                            background: '#FEE2E2',
+                            color: '#DC2626',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                          }}>
+                            −{discount}%
+                          </span>
+                        )}
+                        <span style={{ display: 'block', fontSize: '0.75rem', color: '#7C3AED', marginTop: 6 }}>
+                          Ссылка: /product/{selectedProduct.slug}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className={styles.formRow}>

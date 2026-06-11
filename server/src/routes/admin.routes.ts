@@ -18,8 +18,18 @@ async function uniqueCategorySlug(name: string, excludeId?: string): Promise<str
     slug = `${base}-${counter}`;
   }
 }
+import { getProductImageUrl } from '../utils/productImage.js';
 import { replaceProductVariants } from '../utils/productVariants.js';
 import { decrementStock, getDefaultBrandId, restoreStock } from '../utils/stock.js';
+
+function formatSom(amount: number): string {
+  return `${amount.toLocaleString('ru-RU')} сом`;
+}
+
+function calcDiscountPercent(oldPrice: number, salePrice: number): number {
+  if (oldPrice <= salePrice) return 0;
+  return Math.round((1 - salePrice / oldPrice) * 100);
+}
 
 const ORDER_STATUSES = ['NEW', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const;
 
@@ -335,21 +345,24 @@ router.delete('/brands/:id', async (req, res) => {
   res.json({ message: 'Бренд удален' });
 });
 
-async function bannerFromProduct(productId: string) {
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-    include: { images: { orderBy: { order: 'asc' }, take: 1 } },
-  });
+async function bannerFromProduct(
+  productId: string,
+  opts?: { salePrice?: number; oldPrice?: number }
+) {
+  const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) throw new Error('Товар не найден');
 
-  const image = product.images[0]?.url;
-  if (!image) throw new Error('У товара нет фото — добавьте изображение');
+  const image = await getProductImageUrl(productId);
+  if (!image) throw new Error('У товара нет фото — добавьте изображение в товар или цвет');
 
-  const price = Number(product.price);
-  const oldPrice = product.oldPrice ? Number(product.oldPrice) : null;
-  const subtitle = oldPrice
-    ? `${price.toLocaleString('ru-RU')} сом вместо ${oldPrice.toLocaleString('ru-RU')}`
-    : `${price.toLocaleString('ru-RU')} сом`;
+  const salePrice = opts?.salePrice ?? Number(product.price);
+  const oldPrice = opts?.oldPrice ?? (product.oldPrice ? Number(product.oldPrice) : Number(product.price));
+  const discount = calcDiscountPercent(oldPrice, salePrice);
+
+  const subtitle =
+    discount > 0
+      ? `${formatSom(salePrice)} вместо ${formatSom(oldPrice)} · −${discount}%`
+      : formatSom(salePrice);
 
   return {
     title: product.name,
@@ -358,6 +371,22 @@ async function bannerFromProduct(productId: string) {
     link: `/product/${product.slug}`,
     productId: product.id,
   };
+}
+
+async function applyProductSale(productId: string, salePrice: number, oldPrice: number) {
+  const sale = Number(salePrice);
+  const old = Number(oldPrice);
+  if (!sale || sale <= 0) throw new Error('Укажите корректную цену акции');
+  if (!old || old <= sale) throw new Error('Старая цена должна быть выше новой');
+
+  await prisma.product.update({
+    where: { id: productId },
+    data: {
+      price: sale,
+      oldPrice: old,
+      isSale: true,
+    },
+  });
 }
 
 // Banners CRUD
@@ -371,21 +400,30 @@ router.get('/banners', async (_req, res) => {
 
 router.post('/banners', async (req, res) => {
   try {
-    const { productId, title, subtitle, image, link, isActive, order } = req.body;
+    const { productId, salePrice, oldPrice, isActive, order } = req.body;
+    const id = productId ? String(productId) : '';
 
-    let data = { title, subtitle, image, link, productId: productId || null, isActive: isActive ?? true, order: order ?? 0 };
-
-    if (productId) {
-      const fromProduct = await bannerFromProduct(String(productId));
-      data = { ...data, ...fromProduct, isActive: isActive ?? true, order: order ?? 0 };
-    }
-
-    if (!data.title || !data.image) {
+    if (!id) {
       res.status(400).json({ message: 'Выберите товар из каталога' });
       return;
     }
 
-    const banner = await prisma.banner.create({ data });
+    if (salePrice != null && oldPrice != null) {
+      await applyProductSale(id, Number(salePrice), Number(oldPrice));
+    }
+
+    const fromProduct = await bannerFromProduct(id, {
+      salePrice: salePrice != null ? Number(salePrice) : undefined,
+      oldPrice: oldPrice != null ? Number(oldPrice) : undefined,
+    });
+
+    const banner = await prisma.banner.create({
+      data: {
+        ...fromProduct,
+        isActive: isActive ?? true,
+        order: order ?? 0,
+      },
+    });
     res.status(201).json(banner);
   } catch (err) {
     res.status(400).json({ message: err instanceof Error ? err.message : 'Ошибка' });
@@ -394,18 +432,30 @@ router.post('/banners', async (req, res) => {
 
 router.put('/banners/:id', async (req, res) => {
   try {
-    const { productId, title, subtitle, image, link, isActive, order } = req.body;
+    const { productId, salePrice, oldPrice, isActive, order } = req.body;
+    const id = productId ? String(productId) : '';
 
-    let updateData: Record<string, unknown> = { title, subtitle, image, link, isActive, order };
-
-    if (productId) {
-      const fromProduct = await bannerFromProduct(String(productId));
-      updateData = { ...updateData, ...fromProduct };
+    if (!id) {
+      res.status(400).json({ message: 'Выберите товар из каталога' });
+      return;
     }
+
+    if (salePrice != null && oldPrice != null) {
+      await applyProductSale(id, Number(salePrice), Number(oldPrice));
+    }
+
+    const fromProduct = await bannerFromProduct(id, {
+      salePrice: salePrice != null ? Number(salePrice) : undefined,
+      oldPrice: oldPrice != null ? Number(oldPrice) : undefined,
+    });
 
     const banner = await prisma.banner.update({
       where: { id: String(req.params.id) },
-      data: updateData,
+      data: {
+        ...fromProduct,
+        isActive,
+        order,
+      },
     });
     res.json(banner);
   } catch (err) {
