@@ -56,6 +56,8 @@ export default function AdminProducts() {
   const [form, setForm] = useState<ProductForm>(emptyForm());
   const [error, setError] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingColorIdx, setUploadingColorIdx] = useState<number | null>(null);
   const [sizePreset, setSizePreset] = useState<SizePreset>('clothing');
@@ -274,17 +276,30 @@ export default function AdminProducts() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Удалить товар? Это действие нельзя отменить.')) return;
+  const requestDelete = (product: Product) => {
+    setDeleteError('');
+    setDeleteTarget({ id: product.id, name: product.name });
+  };
+
+  const cancelDelete = () => {
+    if (!deleting) setDeleteTarget(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     setDeleteError('');
     try {
-      await api.delete(`/admin/products/${id}`);
-      setProducts((prev) => prev.filter((p) => p.id !== id));
+      await api.delete(`/admin/products/${deleteTarget.id}`);
+      setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
       if (pagination) {
         setPagination({ ...pagination, total: Math.max(0, pagination.total - 1) });
       }
+      setDeleteTarget(null);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Не удалось удалить товар');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -389,7 +404,7 @@ export default function AdminProducts() {
                   <button className={`${styles.actionBtn} ${styles.editBtn}`} onClick={() => openEdit(p)}>
                     Изменить
                   </button>
-                  <button className={`${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => handleDelete(p.id)}>
+                  <button type="button" className={`${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => requestDelete(p)}>
                     Удалить
                   </button>
                 </div>
@@ -423,7 +438,7 @@ export default function AdminProducts() {
                       <td>
                         <div className={styles.actions}>
                           <button className={`${styles.actionBtn} ${styles.editBtn}`} onClick={() => openEdit(p)}>Изменить</button>
-                          <button className={`${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => handleDelete(p.id)}>Удалить</button>
+                          <button type="button" className={`${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => requestDelete(p)}>Удалить</button>
                         </div>
                       </td>
                     </tr>
@@ -586,41 +601,22 @@ export default function AdminProducts() {
                       <span className={styles.colorGroupSizesLabel}>
                         {isShoes ? 'Количество по размерам (EU)' : 'Количество по размерам'}
                       </span>
-                      {isShoes ? (
-                        <div className={styles.sizeGrid}>
-                          {group.sizes.map((s, si) => (
-                            <div key={s.size} className={styles.sizeGridItem}>
-                              <span className={styles.sizeLabel}>{s.size}</span>
-                              <input
-                                className={styles.adminInput}
-                                type="number"
-                                min="0"
-                                value={s.stock}
-                                onChange={(e) => updateColorGroupSize(gi, si, e.target.value)}
-                                placeholder="0"
-                              />
-                              <span className={styles.sizeUnit}>шт.</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className={styles.sizeGrid}>
-                          {group.sizes.map((s, si) => (
-                            <div key={s.size} className={styles.sizeGridItem}>
-                              <span className={styles.sizeLabel}>{s.size}</span>
-                              <input
-                                className={styles.adminInput}
-                                type="number"
-                                min="0"
-                                value={s.stock}
-                                onChange={(e) => updateColorGroupSize(gi, si, e.target.value)}
-                                placeholder="0"
-                              />
-                              <span className={styles.sizeUnit}>шт.</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <div className={`${styles.sizeGrid} ${isShoes ? styles.shoeSizeGrid : ''}`}>
+                        {group.sizes.map((s, si) => (
+                          <div key={s.size} className={styles.sizeGridItem}>
+                            <span className={styles.sizeLabel}>{s.size}</span>
+                            <input
+                              className={styles.adminInput}
+                              type="number"
+                              min="0"
+                              value={s.stock}
+                              onChange={(e) => updateColorGroupSize(gi, si, e.target.value)}
+                              placeholder="0"
+                            />
+                            <span className={styles.sizeUnit}>шт.</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -634,7 +630,7 @@ export default function AdminProducts() {
                       )}
                     </div>
                     {isShoes ? (
-                      <div className={styles.sizeGrid}>
+                      <div className={`${styles.sizeGrid} ${styles.shoeSizeGrid}`}>
                         {form.noColorSizes.map((s, i) => (
                           <div key={s.size} className={styles.sizeGridItem}>
                             <span className={styles.sizeLabel}>{s.size}</span>
@@ -700,6 +696,39 @@ export default function AdminProducts() {
                 <button type="button" className={styles.adminPrimaryBtn} onClick={handleSubmit}>{editing ? 'Сохранить' : 'Опубликовать'}</button>
                 <button type="button" className={styles.adminGhostBtn} onClick={() => setModal(false)}>Отмена</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className={styles.modal} onClick={cancelDelete}>
+          <div
+            className={`${styles.modalContent} ${styles.confirmModal}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Удалить товар?</h3>
+            <p>
+              «{deleteTarget.name}» будет удалён без возможности восстановления.
+            </p>
+            <div className={styles.confirmModalActions}>
+              <button
+                type="button"
+                className={styles.adminGhostBtn}
+                onClick={cancelDelete}
+                disabled={deleting}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className={`${styles.adminPrimaryBtn} ${styles.deleteBtn}`}
+                onClick={confirmDelete}
+                disabled={deleting}
+                style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}
+              >
+                {deleting ? 'Удаление...' : 'Удалить'}
+              </button>
             </div>
           </div>
         </div>

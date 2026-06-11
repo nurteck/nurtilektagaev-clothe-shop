@@ -125,7 +125,11 @@ export default function Home() {
 
           {currentPromo.image ? (
 
-            <img src={resolveMediaUrl(currentPromo.image)} alt={currentPromo.title} className={styles.heroImg} loading="eager" />
+            <div className={styles.heroMedia}>
+
+              <img src={resolveMediaUrl(currentPromo.image)} alt="" className={styles.heroImg} loading="eager" />
+
+            </div>
 
           ) : (
 

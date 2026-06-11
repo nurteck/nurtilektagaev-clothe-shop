@@ -1069,6 +1069,7 @@
 
 .productCard {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 12px;
   background: var(--white);
@@ -1095,7 +1096,7 @@
 
 .productCardBody {
   flex: 1;
-  min-width: 0;
+  min-width: calc(100% - 76px);
 }
 
 .productCardName {
@@ -1123,9 +1124,64 @@
 
 .productCardActions {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  gap: 10px;
+  width: 100%;
   flex-shrink: 0;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gray-100);
+}
+
+.productCardActions .actionBtn {
+  flex: 1;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+}
+
+.confirmModal {
+  max-width: 400px;
+  text-align: center;
+}
+
+.confirmModal h3 {
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  color: var(--gray-800);
+}
+
+.confirmModal p {
+  font-size: 0.875rem;
+  color: var(--gray-500);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.confirmModalActions {
+  display: flex;
+  gap: 12px;
+}
+
+.confirmModalActions button {
+  flex: 1;
+  min-height: 44px;
+}
+
+.shoeSizeGrid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (min-width: 520px) {
+  .shoeSizeGrid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .shoeSizeGrid {
+    grid-template-columns: repeat(8, 1fr);
+  }
 }
 
 .productTableWrap {

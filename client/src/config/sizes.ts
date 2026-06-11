@@ -4,7 +4,12 @@ import { getSizesForColor, getVariantStock } from './variants';
 export type SizePreset = 'clothing' | 'shoes';
 
 export const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
-export const SHOE_SIZES = ['36', '37', '38', '39', '40', '41', '42', '43'] as const;
+/** EU: детские 16–35, взрослые 36–46 */
+export const SHOE_SIZES = [
+  '16', '17', '18', '19', '20', '21', '22', '23', '24', '25',
+  '26', '27', '28', '29', '30', '31', '32', '33', '34', '35',
+  '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46',
+] as const;
 
 export function isShoeCategory(category?: Category | null): boolean {
   if (!category) return false;
